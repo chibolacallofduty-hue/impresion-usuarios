@@ -1,0 +1,1372 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Enviar Pedido de Impresión Inteligente</title>
+    
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+    <script>
+        if (window['pdfjsLib']) {
+            window['pdfjsLib'].GlobalWorkerOptions.workerSrc = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
+        }
+    </script>
+    
+    <style>
+        :root {
+            --bg-main: #f1f5f9;
+            --panel-bg: #ffffff;
+            --text-dark: #0f172a;
+            --text-muted: #64748b;
+            --brand-color: #2563eb;
+            --brand-hover: #1d4ed8;
+            --success-color: #059669;
+            --border-color: #e2e8f0;
+            --ai-color: #2563eb;
+            --input-bg: #f8fafc;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            background-color: var(--bg-main);
+            color: var(--text-dark);
+            margin: 0;
+            padding: 12px;
+            display: flex;
+            justify-content: center;
+            align-items: flex-start;
+            min-height: 100vh;
+            box-sizing: border-box;
+        }
+
+        .container {
+            width: 100%;
+            max-width: 440px;
+            background: var(--panel-bg);
+            border-radius: 18px;
+            box-shadow: 0 1px 3px rgba(15, 23, 42, 0.06), 0 8px 24px -8px rgba(15, 23, 42, 0.08);
+            border: 1px solid var(--border-color);
+            padding: 22px;
+            box-sizing: border-box;
+            margin-top: 10px;
+        }
+
+        h2 {
+            margin: 0 0 5px 0;
+            text-align: center;
+            color: var(--text-dark);
+            font-size: 1.3rem;
+            font-weight: 800;
+            letter-spacing: -0.3px;
+        }
+
+        .subtitle {
+            text-align: center;
+            color: var(--text-muted);
+            font-size: 0.85rem;
+            margin-bottom: 20px;
+        }
+
+        .form-group {
+            margin-bottom: 16px;
+            display: flex;
+            flex-direction: column;
+        }
+
+        label {
+            font-size: 0.85rem;
+            font-weight: 600;
+            margin-bottom: 6px;
+            color: var(--text-dark);
+        }
+
+        input, select {
+            height: 50px;
+            padding: 0 14px;
+            font-size: 1rem;
+            border: 1.5px solid var(--border-color);
+            border-radius: 10px;
+            outline: none;
+            background-color: var(--input-bg);
+            color: var(--text-dark);
+            box-sizing: border-box;
+            -webkit-appearance: none;
+        }
+
+        input:focus, select:focus {
+            border-color: var(--brand-color);
+            background-color: #ffffff;
+        }
+
+        input:disabled, select:disabled {
+            background-color: #f1f5f9 !important;
+            border-color: #e2e8f0 !important;
+            color: #94a3b8 !important;
+            cursor: not-allowed;
+            opacity: 1;
+        }
+
+        .ai-upload-zone {
+            border: 1.5px dashed #94a3b8;
+            background: var(--input-bg);
+            padding: 26px 15px;
+            border-radius: 14px;
+            text-align: center;
+            margin-bottom: 18px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        .ai-upload-zone:active {
+            transform: scale(0.98);
+            background: #eef2f7;
+        }
+
+        .ai-status {
+            font-size: 0.88rem;
+            color: #065f46;
+            font-weight: 600;
+            margin-top: 10px;
+            display: none;
+            padding: 12px;
+            border-radius: 8px;
+            background-color: #ecfdf5;
+            text-align: left;
+            max-height: 140px;
+            overflow-y: auto;
+            border: 1px solid #a7f3d0;
+        }
+
+        /* Contenedor nuevo de orientación inteligente para precios mixtos */
+        .panel-mixto-ia {
+            display: none;
+            background: #f8fafc;
+            border: 1.5px solid var(--border-color);
+            border-radius: 14px;
+            padding: 16px;
+            margin-bottom: 16px;
+        }
+
+        .panel-mixto-ia title {
+            display: block;
+            font-size: 0.75rem;
+            font-weight: 800;
+            color: var(--brand-color);
+            margin-bottom: 10px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .mixto-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 0.9rem;
+            padding: 8px 0;
+            color: var(--text-dark);
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .mixto-item:last-child {
+            border-bottom: none;
+        }
+
+        .opciones-impresion-container {
+            display: none;
+            background: #ffffff;
+            border: 1.5px solid var(--border-color);
+            border-radius: 14px;
+            padding: 16px;
+            margin-bottom: 16px;
+        }
+
+        .opciones-impresion-titulo {
+            font-size: 0.75rem;
+            font-weight: 700;
+            color: var(--text-muted);
+            margin-bottom: 10px;
+            text-transform: uppercase;
+            letter-spacing: 0.6px;
+        }
+
+        .opciones-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+        }
+
+        .opcion-card {
+            border: 1.5px solid var(--border-color);
+            background-color: #ffffff;
+            border-radius: 12px;
+            padding: 14px 10px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.15s ease;
+            user-select: none;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        .opcion-card.seleccionada {
+            border-color: var(--brand-color);
+            background: #eff6ff;
+            box-shadow: 0 0 0 1px var(--brand-color) inset;
+        }
+
+        /* Tarjeta de "color real detectado" */
+        .opcion-card-color {
+            border-color: #e2e8f0;
+        }
+
+        .opcion-card-color.seleccionada {
+            border-color: var(--brand-color);
+            background: #eff6ff;
+            box-shadow: 0 0 0 1px var(--brand-color) inset;
+        }
+
+        /* Tarjeta de "todo Blanco y Negro" */
+        .opcion-card-bn {
+            border-color: #e2e8f0;
+        }
+
+        .opcion-card-bn.seleccionada {
+            border-color: #475569;
+            background: #f1f5f9;
+            box-shadow: 0 0 0 1px #475569 inset;
+        }
+
+        .opcion-card-bn .icono {
+            filter: grayscale(1);
+        }
+
+        .opcion-card .icono {
+            font-size: 1.3rem;
+            margin-bottom: 4px;
+            display: block;
+        }
+
+        .opcion-card .nombre {
+            font-size: 0.85rem;
+            font-weight: 700;
+            color: var(--text-dark);
+            display: block;
+        }
+
+        .opcion-card .tarifa {
+            font-size: 0.75rem;
+            color: var(--text-muted);
+            margin-top: 2px;
+            display: block;
+            line-height: 1.3;
+        }
+
+        .box-cotizacion {
+            background: var(--text-dark);
+            border: none;
+            color: white;
+            border-radius: 16px;
+            padding: 20px 16px;
+            text-align: center;
+            margin: 20px 0;
+        }
+
+        .box-cotizacion .precio {
+            font-size: 2.6rem;
+            font-weight: 800;
+            margin-top: 4px;
+            color: #ffffff;
+            letter-spacing: -1px;
+        }
+
+        .btn-enviar {
+            width: 100%;
+            height: 54px;
+            background-color: var(--brand-color);
+            color: white;
+            border: none;
+            border-radius: 12px;
+            font-size: 1.05rem;
+            font-weight: 700;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            box-shadow: 0 4px 12px rgba(37, 99, 235, 0.25);
+        }
+
+        .btn-enviar:active {
+            transform: translateY(1px);
+            background-color: var(--brand-hover);
+        }
+
+        .btn-enviar:disabled {
+            background-color: #cbd5e1;
+            color: #f1f5f9;
+            cursor: not-allowed;
+            box-shadow: none;
+        }
+
+        #btnVerMisPedidos:active {
+            transform: scale(0.98);
+            background: #dbeafe;
+        }
+
+        .loading-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            background-color: rgba(241, 245, 249, 0.97);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 9999;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.3s ease;
+        }
+
+        .loading-overlay.active {
+            opacity: 1;
+            pointer-events: auto;
+        }
+
+        .spinner {
+            width: 46px;
+            height: 46px;
+            border: 4px solid #e2e8f0;
+            border-top: 4px solid var(--brand-color);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin-bottom: 15px;
+        }
+
+        .loading-text {
+            color: var(--text-dark);
+            font-weight: 700;
+            font-size: 1.05rem;
+            text-align: center;
+            padding: 0 20px;
+        }
+
+        .btn-audio-flotante {
+            position: fixed;
+            bottom: 22px;
+            right: 22px;
+            width: 56px;
+            height: 56px;
+            border-radius: 50%;
+            background-color: var(--text-dark);
+            color: white;
+            border: none;
+            font-size: 1.4rem;
+            cursor: grab;
+            box-shadow: 0 6px 16px rgba(15, 23, 42, 0.25);
+            z-index: 999;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            animation: flotarPulso 2.2s ease-in-out infinite;
+            -webkit-tap-highlight-color: transparent;
+            touch-action: none;
+            user-select: none;
+        }
+
+        .btn-audio-flotante:active { cursor: grabbing; }
+
+        .btn-audio-flotante.arrastrando {
+            animation: none;
+            transition: none;
+            box-shadow: 0 8px 20px rgba(0,0,0,0.3);
+        }
+
+        .btn-audio-flotante.hablando {
+            background-color: var(--success-color);
+            animation: hablandoPulso 0.8s ease-in-out infinite;
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+            .btn-audio-flotante { animation: none; }
+        }
+
+        @keyframes flotarPulso {
+            0%, 100% { box-shadow: 0 6px 16px rgba(251, 146, 60, 0.5); }
+            50% { box-shadow: 0 6px 22px rgba(251, 146, 60, 0.9), 0 0 0 8px rgba(251, 146, 60, 0.15); }
+        }
+
+        @keyframes hablandoPulso {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.1); }
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body>
+
+<div id="loaderGlobal" class="loading-overlay">
+    <div class="spinner"></div>
+    <div class="loading-text" id="loaderTexto">🤖 Analizando archivos...<br><span style="font-size: 0.85rem; color: var(--text-muted); font-weight: 400;">Calculando páginas y costos en tiempo real.</span></div>
+</div>
+
+<div class="container">
+    <h2>Pedir Impresiones en Línea 🤖</h2>
+    <div class="subtitle">Subí tus archivos para cotización automática instantánea</div>
+
+    <form id="formPedido" onsubmit="event.preventDefault(); enviarPedidoALaNube();">
+        <div class="form-group">
+            <label for="cliente">Tu Nombre Completo</label>
+            <input type="text" id="cliente" placeholder="Ej: Juan Pérez" required>
+        </div>
+
+        <button type="button" id="btnVerMisPedidos" onclick="verMisPedidos()" style="width: 100%; display: flex; align-items: center; justify-content: center; gap: 6px; font-size: 0.85rem; font-weight: 700; color: var(--brand-color); background: #eff6ff; border: 1.5px solid #bfdbfe; border-radius: 10px; padding: 11px 0; margin: 0 0 16px 0; cursor: pointer; -webkit-tap-highlight-color: transparent;">
+            <span style="font-size: 1rem;">📋</span> Ver mis pedidos anteriores
+        </button>
+        <div id="panelMisPedidos" style="display: none; background: #f8fafc; border: 1.5px solid var(--border-color); border-radius: 12px; padding: 12px; margin: -4px 0 16px 0; max-height: 220px; overflow-y: auto;"></div>
+
+        <div class="ai-upload-zone" onclick="document.getElementById('archivoDocumento').click()">
+            <span style="font-size: 2.2rem;">📄</span>
+            <p style="margin: 6px 0 2px 0; font-weight: 700; color: #0f172a; font-size: 1.1rem;">Cargar Documentos</p>
+            <span style="font-size: 0.8rem; color: var(--text-muted);">Máx 10 documentos. Imágenes deben enviarse por WhatsApp.</span>
+            <input type="file" id="archivoDocumento" accept=".pdf,.doc,.docx,.ppt,.pptx,.xls,.xlsx" style="display: none;" multiple onchange="analizarArchivosMasivos(event)">
+            <div id="statusIA" class="ai-status"></div>
+        </div>
+
+        <div id="vistaPreviaContenedor" style="display: none; margin-bottom: 16px;">
+            <span style="font-size: 0.75rem; color: var(--text-muted); text-transform: uppercase; font-weight: 700; display: block; margin-bottom: 6px; text-align: center;">Vista previa de tus documentos</span>
+            <div id="vistaPreviaGaleria" style="display: flex; gap: 8px; overflow-x: auto; padding: 4px 2px;"></div>
+        </div>
+
+        <div class="panel-mixto-ia" id="panelMixtoIA">
+            <span style="display: block; font-size: 0.85rem; font-weight: 800; color: #2563eb; margin-bottom: 6px; text-transform: uppercase;">✨ Detección Mixta Inteligente</span>
+            <div class="mixto-item">
+                <span>⚫ Páginas Blanco y Negro:</span>
+                <span id="lblPaginasBN" style="font-weight: 700;">0</span>
+            </div>
+            <div class="mixto-item">
+                <span>🌗 Texto con Pocas Imágenes:</span>
+                <span id="lblPaginasColorParcial" style="font-weight: 700;">0</span>
+            </div>
+            <div class="mixto-item">
+                <span>🎨 Páginas a Color:</span>
+                <span id="lblPaginasColor" style="font-weight: 700;">0</span>
+            </div>
+        </div>
+
+        <div class="opciones-impresion-container" id="panelPreferenciaCliente">
+            <div class="opciones-impresion-titulo">¿Cómo deseas imprimirlo?</div>
+            <div class="opciones-grid">
+                <div class="opcion-card opcion-card-color seleccionada" id="optAceptarDeteccion" onclick="aplicarPreferenciaCliente('deteccion')">
+                    <span class="icono">🎨</span>
+                    <span class="nombre">Pagar lo justo por página</span>
+                    <span class="tarifa">El sistema revisó tu documento y cobra cada página según cuánto color tiene de verdad</span>
+                </div>
+                <div class="opcion-card opcion-card-bn" id="optForzarBN" onclick="aplicarPreferenciaCliente('bn')">
+                    <span class="icono">⚫</span>
+                    <span class="nombre">Todo en Blanco y Negro</span>
+                    <span class="tarifa">Aunque tenga imágenes a color, se imprime y cobra todo a ₡50 por página</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="form-group" id="grupoCantidad">
+            <label for="cantidad">¿Cuántas páginas tiene?</label>
+            <input type="number" id="cantidad" value="0" min="0" required oninput="calcularCotizacion()">
+        </div>
+
+        <div class="form-group" id="grupoTipoImpresion">
+            <label for="tipoImpresion">Color / Tipo de Trabajo</label>
+            <select id="tipoImpresion" onchange="calcularCotizacion()">
+                <option value="bn">Blanco y Negro (Monocromático) [₡50]</option>
+                <option value="color">A Color (Texto con gráficos) [₡100]</option>
+            </select>
+        </div>
+
+        <div class="opciones-impresion-container" id="panelOpcionesImpresion">
+            <div class="opciones-impresion-titulo">¿Cómo deseas imprimir tus archivos?</div>
+            <div class="opciones-grid">
+                <div class="opcion-card" id="optBN" onclick="seleccionarModalidadImpresion('bn')">
+                    <span class="icono">⚫</span>
+                    <span class="nombre">Blanco y Negro</span>
+                    <span class="tarifa">₡50 por página</span>
+                </div>
+                <div class="opcion-card" id="optColor" onclick="seleccionarModalidadImpresion('color')">
+                    <span class="icono">🎨</span>
+                    <span class="nombre">A Color</span>
+                    <span class="tarifa">₡100 por página</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="box-cotizacion">
+            <div id="labelCotizacion">Monto Estimado a Pagar:</div>
+            <div class="precio" id="totalCotizado">₡0</div>
+            <div id="tiempoEstimado" style="font-size: 0.8rem; color: #cbd5e1; margin-top: 6px; display: none;"></div>
+        </div>
+
+        <button type="submit" id="btnEnviar" class="btn-enviar">🚀 Enviar Pedido Digital</button>
+    </form>
+</div>
+
+<button type="button" id="btnAudioBienvenida" class="btn-audio-flotante">
+    🔊
+</button>
+
+<script>
+    // TARIFAS: BN = 50, Color Parcial (texto con pocas imágenes) = 75, Color Total = 100
+    const TARIFAS = {
+        bn: 50,
+        colorParcial: 75,
+        color: 100
+    };
+
+    const JSONBIN_CONFIG = {
+        apiKey: "$2a$10$1CT.ODZkwNBUJcZSXiTDtOOWvxmICADU586t6f4V42I5xXSB5UJ9q",
+        binId: "6a34965fda38895dfedab1b3" 
+    };
+
+    let totalGlobal = 0;
+    let urlsArchivosSubidos = [];
+    
+    // Variables de control de páginas analizadas por la IA
+    let paginasBNDetectadas = 0;
+    let paginasColorParcialDetectadas = 0;
+    let paginasColorDetectadas = 0;
+    let esPedidoMixto = false;
+    let esCargaAutomatica = false;
+    let forzarTodoBN = false; // true si el cliente prefiere imprimir todo en BN aunque la IA detecte color
+
+    // Al abrir la app, si el cliente ya pidió antes desde este teléfono, le rellenamos su nombre
+    window.addEventListener('DOMContentLoaded', function() {
+        const nombreGuardado = localStorage.getItem('miCentroImpresion_nombreCliente');
+        if (nombreGuardado) {
+            document.getElementById('cliente').value = nombreGuardado;
+        }
+    });
+
+    // Busca y muestra los pedidos anteriores del cliente (por nombre), con su estado actual
+    function normalizarTexto(txt) {
+        return (txt || "").trim().toLowerCase()
+            .normalize("NFD").replace(/[\u0300-\u036f]/g, ""); // quita tildes
+    }
+
+    async function verMisPedidos() {
+        const panel = document.getElementById('panelMisPedidos');
+
+        if (panel.style.display === "block") {
+            panel.style.display = "none";
+            return;
+        }
+
+        panel.style.display = "block";
+        await cargarMisPedidos();
+    }
+
+    async function cargarMisPedidos() {
+        const panel = document.getElementById('panelMisPedidos');
+        const nombreCliente = document.getElementById('cliente').value.trim();
+
+        if (!nombreCliente) {
+            panel.innerHTML = `<div style="text-align:center; color: var(--text-muted); font-size: 0.85rem; padding: 10px;">Primero escribe tu nombre arriba, así podemos buscar tus pedidos anteriores.</div>`;
+            return;
+        }
+
+        panel.innerHTML = `<div style="text-align:center; color: var(--text-muted); font-size: 0.85rem; padding: 10px;">Buscando tus pedidos...</div>`;
+
+        try {
+            const res = await fetch(`https://api.jsonbin.io/v3/b/${JSONBIN_CONFIG.binId}/latest`, {
+                headers: { 'X-Master-Key': JSONBIN_CONFIG.apiKey }
+            });
+            const data = await res.json();
+            const todos = Array.isArray(data.record) ? data.record : [];
+
+            // Coincidencia flexible: ignora mayúsculas/tildes, y acepta si el nombre escrito
+            // está contenido en el guardado o viceversa (ej. "Juan" encuentra "Juan Pérez").
+            const nombreBuscado = normalizarTexto(nombreCliente);
+            const propios = todos
+                .filter(p => {
+                    const nombreGuardado = normalizarTexto(p.cliente);
+                    return nombreGuardado && (nombreGuardado.includes(nombreBuscado) || nombreBuscado.includes(nombreGuardado));
+                })
+                .reverse()
+                .slice(0, 10);
+
+            if (propios.length === 0) {
+                panel.innerHTML = `<div style="text-align:center; color: var(--text-muted); font-size: 0.85rem; padding: 10px;">No encontramos pedidos anteriores con ese nombre.<br><span onclick="cargarMisPedidos()" style="color: var(--brand-color); cursor:pointer; text-decoration: underline; font-weight: 700;">🔄 Buscar de nuevo</span></div>`;
+                return;
+            }
+
+            const pendientesCount = propios.filter(p => p.estado !== "Procesado").length;
+
+            const encabezado = `<div style="display:flex; justify-content:space-between; align-items:center; padding-bottom: 8px; margin-bottom: 4px; border-bottom: 1.5px solid var(--border-color);">
+                <span style="font-size: 0.78rem; color: var(--text-muted); font-weight: 700;">${propios.length} pedido${propios.length === 1 ? '' : 's'} encontrado${propios.length === 1 ? '' : 's'}${pendientesCount > 0 ? ` · ${pendientesCount} en proceso` : ''}</span>
+                <span onclick="cargarMisPedidos()" style="font-size: 0.78rem; color: var(--brand-color); font-weight: 700; cursor: pointer;">🔄 Actualizar</span>
+            </div>`;
+
+            const filas = propios.map(p => {
+                const listo = p.estado === "Procesado";
+                const colorEstado = listo ? "#059669" : "#d97706";
+                const textoEstado = listo ? "✅ Listo" : "⏳ En proceso";
+                return `<div style="display:flex; justify-content:space-between; align-items:center; padding: 8px 4px; border-bottom: 1px solid var(--border-color); font-size: 0.85rem;">
+                    <div>
+                        <div style="font-weight:700;">Ticket #${p.id} · ${p.hora || ''}</div>
+                        <div style="color: var(--text-muted);">${p.cantidad || 0} pág. · ₡${p.total || 0} · ${p.tipoLabel || ''}</div>
+                    </div>
+                    <div style="color: ${colorEstado}; font-weight: 700; white-space: nowrap; margin-left: 8px;">${textoEstado}</div>
+                </div>`;
+            }).join('');
+
+            panel.innerHTML = encabezado + filas;
+        } catch (e) {
+            panel.innerHTML = `<div style="text-align:center; color: #dc2626; font-size: 0.85rem; padding: 10px;">No se pudo conectar para revisar tus pedidos.<br><span onclick="cargarMisPedidos()" style="color: var(--brand-color); cursor:pointer; text-decoration: underline; font-weight: 700;">🔄 Intentar de nuevo</span></div>`;
+        }
+    }
+
+    function calcularCotizacion() {
+        const cantidadInput = document.getElementById('cantidad');
+        const cantidad = parseFloat(cantidadInput.value) || 0;
+        const tipo = document.getElementById('tipoImpresion').value;
+
+        // Si los archivos fueron analizados por la IA, SIEMPRE se calcula sumando
+        // el desglose real detectado (BN / Color Parcial / Color) — sea mixto o no.
+        // Así nunca se le cobra precio completo de color a una página que la IA
+        // detectó como "texto con pocas imágenes".
+        // (salvo que el cliente haya pedido explícitamente imprimir todo en blanco y negro)
+        if (esCargaAutomatica) {
+            const totalPaginasDetectadas = paginasBNDetectadas + paginasColorParcialDetectadas + paginasColorDetectadas;
+            if (forzarTodoBN) {
+                totalGlobal = totalPaginasDetectadas * TARIFAS.bn;
+            } else {
+                totalGlobal = (paginasBNDetectadas * TARIFAS.bn)
+                    + (paginasColorParcialDetectadas * TARIFAS.colorParcial)
+                    + (paginasColorDetectadas * TARIFAS.color);
+            }
+        } else {
+            if (cantidad <= 0) {
+                document.getElementById('totalCotizado').textContent = "₡0";
+                totalGlobal = 0;
+                return;
+            }
+            totalGlobal = TARIFAS[tipo] * cantidad;
+        }
+
+        // Redondeo comercial a múltiplos de 5 colones
+        // Redondeo comercial a múltiplos de ₡50 (moneda más pequeña en circulación real en Costa Rica)
+        totalGlobal = Math.ceil(totalGlobal / 50) * 50; 
+        document.getElementById('totalCotizado').textContent = "₡" + totalGlobal.toLocaleString('es-CR');
+
+        // Tiempo estimado de entrega: aproximado según la cantidad de páginas
+        const totalHojas = esCargaAutomatica
+            ? (paginasBNDetectadas + paginasColorParcialDetectadas + paginasColorDetectadas)
+            : cantidad;
+        const tiempoDiv = document.getElementById('tiempoEstimado');
+        if (totalHojas > 0) {
+            const minutosEstimados = Math.max(2, Math.ceil(totalHojas / 8));
+            tiempoDiv.textContent = `⏱️ Listo en aproximadamente ${minutosEstimados} minuto${minutosEstimados === 1 ? '' : 's'}`;
+            tiempoDiv.style.display = "block";
+        } else {
+            tiempoDiv.style.display = "none";
+        }
+    }
+
+    function seleccionarModalidadImpresion(modalidad) {
+        // Si es un archivo mixto analizado por IA, no dejamos que toque las tarjetas para evitar desajustes
+        if (esPedidoMixto && esCargaAutomatica) return;
+
+        const selectOriginal = document.getElementById('tipoImpresion');
+        selectOriginal.value = modalidad;
+
+        document.getElementById('optBN').classList.remove('seleccionada');
+        document.getElementById('optColor').classList.remove('seleccionada');
+
+        if (modalidad === 'bn') {
+            document.getElementById('optBN').classList.add('seleccionada');
+        } else {
+            document.getElementById('optColor').classList.add('seleccionada');
+        }
+
+        calcularCotizacion();
+    }
+
+    async function analizarArchivosMasivos(event) {
+        const archivos = event.target.files;
+        if (!archivos || archivos.length === 0) return;
+
+        const loader = document.getElementById('loaderGlobal');
+        const loaderTexto = document.getElementById('loaderTexto');
+        const statusDiv = document.getElementById('statusIA');
+        const cantidadInput = document.getElementById('cantidad');
+
+        let contadorDocumentos = 0;
+        paginasBNDetectadas = 0;
+        paginasColorParcialDetectadas = 0;
+        paginasColorDetectadas = 0;
+        esPedidoMixto = false;
+        forzarTodoBN = false;
+        let archivosConProblema = [];
+
+        for (let i = 0; i < archivos.length; i++) {
+            const nombre = archivos[i].name.toLowerCase();
+            if (nombre.match(/\.(jpg|jpeg|png)$/)) {
+                alert(`⚠️ Error: El archivo "${archivos[i].name}" es una imagen.\n\nNo se permite la carga de imágenes en este sistema. Por favor, envía tus fotos directamente por WhatsApp.`);
+                event.target.value = ""; 
+                return;
+            }
+            contadorDocumentos++;
+        }
+
+        if (contadorDocumentos > 10) {
+            alert(`⚠️ Has seleccionado ${contadorDocumentos} documentos. El límite máximo permitido es de 10 documentos.`);
+            event.target.value = ""; 
+            return;
+        }
+
+        loader.classList.add('active');
+        document.getElementById('vistaPreviaContenedor').style.display = "none";
+        document.getElementById('vistaPreviaGaleria').innerHTML = "";
+        
+        for (let i = 0; i < archivos.length; i++) {
+            const archivo = archivos[i];
+            const nombreArchivo = archivo.name.toLowerCase();
+            loaderTexto.innerHTML = `🤖 Analizando archivo ${i + 1} de ${archivos.length}...<br><span style="font-size: 0.85rem; color: var(--text-muted); font-weight: 400;">${archivo.name}</span>`;
+
+            if (nombreArchivo.endsWith('.pdf')) {
+                // Análisis real: renderiza cada página y mide si tiene color de verdad
+                try {
+                    const resultadoPDF = await procesarPDFColorReal(archivo, (paginaActual, totalPaginas) => {
+                        loaderTexto.innerHTML = `🤖 Analizando archivo ${i + 1} de ${archivos.length}...<br><span style="font-size: 0.85rem; color: var(--text-muted); font-weight: 400;">${archivo.name} — página ${paginaActual}/${totalPaginas}</span>`;
+                    }, (dataUrl, numPagina) => {
+                        const galeria = document.getElementById('vistaPreviaGaleria');
+                        const envoltura = document.createElement('div');
+                        envoltura.style.cssText = "flex-shrink: 0; text-align: center;";
+                        const miniatura = document.createElement('img');
+                        miniatura.src = dataUrl;
+                        miniatura.title = `${archivo.name} — pág. ${numPagina}`;
+                        miniatura.style.cssText = "max-width: 110px; max-height: 150px; border: 1.5px solid var(--border-color); border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); display: block;";
+                        const etiqueta = document.createElement('span');
+                        etiqueta.textContent = `Pág. ${numPagina}`;
+                        etiqueta.style.cssText = "font-size: 0.7rem; color: var(--text-muted); display: block; margin-top: 3px;";
+                        envoltura.appendChild(miniatura);
+                        envoltura.appendChild(etiqueta);
+                        galeria.appendChild(envoltura);
+                        document.getElementById('vistaPreviaContenedor').style.display = "block";
+                    });
+                    paginasBNDetectadas += resultadoPDF.bn;
+                    paginasColorParcialDetectadas += resultadoPDF.colorParcial;
+                    paginasColorDetectadas += resultadoPDF.color;
+                } catch (e) {
+                    console.error("Error analizando PDF, se usa conteo simple de páginas:", e);
+                    archivosConProblema.push(archivo.name);
+                    const pgs = await procesarPDF(archivo);
+                    paginasBNDetectadas += pgs;
+                }
+            } 
+            else if (nombreArchivo.endsWith('.docx') || nombreArchivo.endsWith('.pptx') || nombreArchivo.endsWith('.xlsx')) {
+                try {
+                    const resultadoOffice = await procesarOffice(archivo);
+                    if (resultadoOffice.tipo === "color") {
+                        paginasColorDetectadas += resultadoOffice.paginas;
+                    } else if (resultadoOffice.tipo === "colorParcial") {
+                        paginasColorParcialDetectadas += resultadoOffice.paginas;
+                    } else {
+                        paginasBNDetectadas += resultadoOffice.paginas;
+                    }
+                } catch (e) {
+                    archivosConProblema.push(archivo.name);
+                    paginasBNDetectadas += 1;
+                }
+            } else {
+                paginasBNDetectadas += 1;
+            }
+        }
+
+        let totalPaginasAcumuladas = paginasBNDetectadas + paginasColorParcialDetectadas + paginasColorDetectadas;
+        cantidadInput.value = totalPaginasAcumuladas;
+        esCargaAutomatica = true;
+        forzarTodoBN = false;
+
+        // Ocultamos la entrada manual siempre que se suban archivos
+        document.getElementById('grupoCantidad').style.display = "none";
+        document.getElementById('grupoTipoImpresion').style.display = "none";
+        // Las tarjetas manuales BN/Color ya no se usan cuando hay análisis automático:
+        // el precio siempre se calcula con el desglose real detectado por la IA.
+        document.getElementById('panelOpcionesImpresion').style.display = "none";
+
+        // Determinamos si el documento tiene más de un tipo de página (solo para el mensaje, no para el precio)
+        const categoriasConPaginas = [paginasBNDetectadas, paginasColorParcialDetectadas, paginasColorDetectadas].filter(n => n > 0).length;
+        esPedidoMixto = categoriasConPaginas > 1;
+        const hayAlgoDeColor = (paginasColorParcialDetectadas + paginasColorDetectadas) > 0;
+
+        // Siempre mostramos el desglose real de páginas detectadas
+        document.getElementById('panelMixtoIA').style.display = "block";
+        document.getElementById('lblPaginasBN').textContent = `${paginasBNDetectadas} pág. (₡${(paginasBNDetectadas * TARIFAS.bn)})`;
+        document.getElementById('lblPaginasColorParcial').textContent = `${paginasColorParcialDetectadas} pág. (₡${(paginasColorParcialDetectadas * TARIFAS.colorParcial)})`;
+        document.getElementById('lblPaginasColor').textContent = `${paginasColorDetectadas} pág. (₡${(paginasColorDetectadas * TARIFAS.color)})`;
+
+        if (hayAlgoDeColor) {
+            // Solo tiene sentido preguntar "color o BN" si de verdad hay algo de color que decidir
+            document.getElementById('panelPreferenciaCliente').style.display = "block";
+            document.getElementById('optAceptarDeteccion').classList.add('seleccionada');
+            document.getElementById('optForzarBN').classList.remove('seleccionada');
+        } else {
+            // Documento 100% Blanco y Negro: no hay nada que elegir, no le mostramos la decisión
+            document.getElementById('panelPreferenciaCliente').style.display = "none";
+            forzarTodoBN = false;
+        }
+
+        statusDiv.style.display = "block";
+        if (esPedidoMixto) {
+            statusDiv.innerHTML = `🤖 <b>Documento Mixto Detectado:</b> El sistema identificó páginas en blanco y negro, páginas de texto con pocas imágenes, y páginas a color, y sumó el precio justo de cada una.`;
+        } else if (!hayAlgoDeColor) {
+            statusDiv.innerHTML = `🤖 <b>Documento en Blanco y Negro:</b> Un total de ${totalPaginasAcumuladas} páginas, sin color detectado.`;
+        } else {
+            statusDiv.innerHTML = `🤖 <b>Lectura completada con éxito:</b> Un total de ${totalPaginasAcumuladas} páginas listas.`;
+        }
+
+        document.getElementById('labelCotizacion').textContent = "Monto Cotizado por IA:";
+        calcularCotizacion();
+        loader.classList.remove('active');
+
+        // Avisamos si algún archivo no se pudo leer bien, para que el cliente lo revise
+        // antes de pagar por algo que tal vez no se pueda imprimir correctamente.
+        if (archivosConProblema.length > 0) {
+            alert(`⚠️ Atención: no pudimos leer bien el contenido de:\n\n${archivosConProblema.join('\n')}\n\nPodría estar dañado, protegido o vacío. Se contó como páginas en Blanco y Negro por seguridad, pero te recomendamos revisar el archivo antes de continuar.`);
+        }
+    }
+
+    // El cliente decide: aceptar el desglose mixto que detectó la IA,
+    // o pedir que absolutamente todo se imprima en blanco y negro (más barato).
+    function aplicarPreferenciaCliente(opcion) {
+        forzarTodoBN = (opcion === 'bn');
+
+        document.getElementById('optAceptarDeteccion').classList.toggle('seleccionada', !forzarTodoBN);
+        document.getElementById('optForzarBN').classList.toggle('seleccionada', forzarTodoBN);
+
+        const statusDiv = document.getElementById('statusIA');
+        if (forzarTodoBN) {
+            statusDiv.innerHTML = `⚫ <b>Preferencia del cliente:</b> Imprimir todo en Blanco y Negro, ignorando el color detectado por la IA.`;
+        } else {
+            statusDiv.innerHTML = `🤖 <b>Documento Mixto Detectado:</b> El sistema identificó páginas en blanco y negro, páginas de texto con pocas imágenes, y páginas a color, y sumó el precio justo de cada una.`;
+        }
+
+        calcularCotizacion();
+    }
+
+    function procesarPDF(archivo) {
+        return new Promise((resolve) => {
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                const lines = e.target.result.split('\n');
+                let cont = 0;
+                for (let i = 0; i < lines.length; i++) {
+                    if (lines[i].match(/\/Type\s*\/Page\b/)) {
+                        cont++;
+                    }
+                }
+                resolve(cont <= 0 ? 1 : cont);
+            };
+            reader.readAsBinaryString(archivo);
+        });
+    }
+
+    // Detección REAL de color con precio justo por página:
+    // Renderiza cada página en un canvas oculto y mide qué PORCENTAJE
+    // de la página tiene color real (no solo si hay algo de color o no).
+    //   - Casi nada de color (ej. solo texto negro)        -> Blanco y Negro
+    //   - Algo de color, pero poco (texto + pocas imágenes) -> Color Parcial (precio intermedio)
+    //   - Mucho color (foto/diseño que cubre la página)     -> Color Total
+    async function procesarPDFColorReal(archivo, onProgreso, onVistaPrevia) {
+        if (!window['pdfjsLib']) {
+            throw new Error("pdf.js no está disponible");
+        }
+
+        const arrayBuffer = await archivo.arrayBuffer();
+        const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+
+        // Si el PDF no tiene ni una página, está vacío o dañado: avisamos en vez de cobrarlo como si fuera normal
+        if (!pdf.numPages || pdf.numPages < 1) {
+            throw new Error(`El archivo "${archivo.name}" parece estar vacío o dañado.`);
+        }
+
+        let paginasBN = 0;
+        let paginasColorParcial = 0;
+        let paginasColor = 0;
+
+        // Guardamos la imagen de la página 1 y la de la página con MÁS color real,
+        // para mostrarle al cliente la que de verdad importa, no solo la primera.
+        let dataUrlPagina1 = null;
+        let dataUrlMasColorida = null;
+        let porcentajeMasColorida = -1;
+        let numeroMasColorida = 1;
+
+        // Margen de tolerancia: diferencias mínimas de color por compresión/JPEG
+        // de escaneos en blanco y negro no deben contar como "color real".
+        const TOLERANCIA_GRIS = 18;
+
+        // Umbrales de PORCENTAJE de la página cubierto por color real:
+        //   menos de UMBRAL_MIN_COLOR  -> Blanco y Negro (ruido/artefactos, sin color real)
+        //   entre UMBRAL_MIN_COLOR y UMBRAL_COLOR_TOTAL -> Color Parcial (texto + pocas imágenes)
+        //   más de UMBRAL_COLOR_TOTAL -> Color Total (página cubierta de color)
+        const UMBRAL_MIN_COLOR = 0.5;      // %
+        const UMBRAL_COLOR_TOTAL = 15;     // %
+
+        for (let numPagina = 1; numPagina <= pdf.numPages; numPagina++) {
+            if (onProgreso) onProgreso(numPagina, pdf.numPages);
+
+            const pagina = await pdf.getPage(numPagina);
+
+            // Escala baja: es suficiente para detectar color y es mucho más rápido
+            const viewport = pagina.getViewport({ scale: 0.4 });
+            const canvas = document.createElement('canvas');
+            canvas.width = viewport.width;
+            canvas.height = viewport.height;
+            const contexto = canvas.getContext('2d', { willReadFrequently: true });
+
+            await pagina.render({ canvasContext: contexto, viewport: viewport }).promise;
+
+            const datosImagen = contexto.getImageData(0, 0, canvas.width, canvas.height).data;
+
+            let pixelesDeColor = 0;
+            let pixelesMuestreados = 0;
+
+            // Recorremos saltando píxeles (cada 4to) para que sea más rápido,
+            // es estadísticamente suficiente para medir el porcentaje real de color.
+            for (let p = 0; p < datosImagen.length; p += 16) {
+                const r = datosImagen[p];
+                const g = datosImagen[p + 1];
+                const b = datosImagen[p + 2];
+
+                const maxCanal = Math.max(r, g, b);
+                const minCanal = Math.min(r, g, b);
+
+                pixelesMuestreados++;
+                if ((maxCanal - minCanal) > TOLERANCIA_GRIS) {
+                    pixelesDeColor++;
+                }
+            }
+
+            const porcentajeColor = pixelesMuestreados > 0 ? (pixelesDeColor / pixelesMuestreados) * 100 : 0;
+
+            // Si nos pidieron vista previa, guardamos esta página como candidata
+            if (onVistaPrevia) {
+                const dataUrlActual = canvas.toDataURL('image/jpeg', 0.7);
+                if (numPagina === 1) dataUrlPagina1 = dataUrlActual;
+                if (porcentajeColor > porcentajeMasColorida) {
+                    porcentajeMasColorida = porcentajeColor;
+                    dataUrlMasColorida = dataUrlActual;
+                    numeroMasColorida = numPagina;
+                }
+            }
+
+            if (porcentajeColor < UMBRAL_MIN_COLOR) {
+                paginasBN++;
+            } else if (porcentajeColor < UMBRAL_COLOR_TOTAL) {
+                paginasColorParcial++;
+            } else {
+                paginasColor++;
+            }
+
+            // Liberamos memoria de la página renderizada
+            pagina.cleanup();
+        }
+
+        // Mostramos la página 1 y, si la página más colorida es otra, también esa
+        // (así el cliente ve la página que realmente define el precio, no solo la portada).
+        if (onVistaPrevia) {
+            try {
+                onVistaPrevia(dataUrlPagina1, 1);
+                if (numeroMasColorida !== 1 && porcentajeMasColorida >= UMBRAL_MIN_COLOR) {
+                    onVistaPrevia(dataUrlMasColorida, numeroMasColorida);
+                }
+            } catch (e) { /* no es crítico */ }
+        }
+
+        return { bn: paginasBN, colorParcial: paginasColorParcial, color: paginasColor };
+    }
+
+    // Cuenta cuántos archivos (imágenes) hay dentro de una carpeta del .zip (docx/xlsx/pptx)
+    function contarArchivosEnCarpeta(zip, carpeta) {
+        let cont = 0;
+        zip.forEach(function(relativePath) {
+            if (relativePath.startsWith(carpeta + "/") && !relativePath.endsWith("/")) cont++;
+        });
+        return cont;
+    }
+
+    // Revisa el XML de un documento de Word/Excel buscando colores de texto o de relleno
+    // que NO sean negro/automático (esos sí cuentan como "tiene color de verdad")
+    function tieneColorEnXml(xmlText) {
+        if (!xmlText) return false;
+        // w:color (Word) y <a:srgbClr val="RRGGBB"/> (Office en general) con un color que no sea negro
+        const coincidencias = xmlText.match(/(?:w:color w:val="|srgbClr val="|fgColor rgb="|bgColor rgb=")([0-9A-Fa-f]{6})/g) || [];
+        for (const c of coincidencias) {
+            const hex = c.slice(-6).toUpperCase();
+            // Ignoramos negro, blanco y grises (donde R=G=B), que no representan color real
+            const r = parseInt(hex.substring(0, 2), 16);
+            const g = parseInt(hex.substring(2, 4), 16);
+            const b = parseInt(hex.substring(4, 6), 16);
+            if (Math.max(r, g, b) - Math.min(r, g, b) > 15) return true;
+        }
+        return false;
+    }
+
+    function procesarOffice(archivo) {
+        return new Promise((resolve, reject) => {
+            const nombreArchivo = archivo.name.toLowerCase();
+            JSZip.loadAsync(archivo).then(function(zip) {
+                const appXmlFile = zip.file("docProps/app.xml");
+
+                const continuarConPaginas = function(paginas) {
+                    // Detección real: ¿hay imágenes incrustadas, y/o texto o celdas con color?
+                    let carpetaMedia = "word/media";
+                    let archivoContenido = "word/document.xml";
+                    if (nombreArchivo.endsWith('.pptx')) {
+                        carpetaMedia = "ppt/media";
+                        archivoContenido = null; // las diapositivas son varios archivos; se evalúan por imágenes
+                    } else if (nombreArchivo.endsWith('.xlsx')) {
+                        carpetaMedia = "xl/media";
+                        archivoContenido = "xl/styles.xml";
+                    }
+
+                    const numImagenes = contarArchivosEnCarpeta(zip, carpetaMedia);
+
+                    const resolverConColor = function(hayColorTexto) {
+                        let tipo = "bn";
+                        if (numImagenes > 0 || nombreArchivo.endsWith('.pptx')) {
+                            // Si tiene imágenes (o es una presentación, que casi siempre lleva diseño visual), es Color
+                            tipo = "color";
+                        } else if (hayColorTexto) {
+                            // Solo texto/celdas con color, sin imágenes -> Color Parcial (precio intermedio)
+                            tipo = "colorParcial";
+                        }
+                        resolve({ paginas, tipo });
+                    };
+
+                    if (archivoContenido && zip.file(archivoContenido)) {
+                        zip.file(archivoContenido).async("string").then(function(xmlContenido) {
+                            resolverConColor(tieneColorEnXml(xmlContenido));
+                        }).catch(() => resolverConColor(false));
+                    } else {
+                        resolverConColor(false);
+                    }
+                };
+
+                if (appXmlFile) {
+                    appXmlFile.async("string").then(function(xmlText) {
+                        let paginas = 1;
+
+                        if (nombreArchivo.endsWith('.docx')) {
+                            let match = xmlText.match(/<Pages>(\d+)<\/Pages>/);
+                            paginas = match ? parseInt(match[1], 10) : 1;
+                        } 
+                        else if (nombreArchivo.endsWith('.pptx')) {
+                            let match = xmlText.match(/<Slides>(\d+)<\/Slides>/);
+                            paginas = match ? parseInt(match[1], 10) : 1;
+                        } 
+                        else if (nombreArchivo.endsWith('.xlsx')) {
+                            let matches = xmlText.match(/<TitlesOfParts>([\s\S]*?)<\/TitlesOfParts>/);
+                            if (matches) {
+                                let lines = matches[1].match(/<vt:lpstr>/g);
+                                paginas = lines ? lines.length : 1;
+                            }
+                        }
+                        continuarConPaginas(paginas);
+                    });
+                } else {
+                    continuarConPaginas(1);
+                }
+            }).catch(err => reject(err));
+        });
+    }
+
+    (function habilitarArrastre() {
+        const btn = document.getElementById('btnAudioBienvenida');
+        let arrastrando = false;
+        let movido = false;
+        let offsetX = 0, offsetY = 0;
+
+        try {
+            const posGuardada = JSON.parse(localStorage.getItem('posBotonAudio'));
+            if (posGuardada) {
+                btn.style.left = posGuardada.left;
+                btn.style.top = posGuardada.top;
+                btn.style.right = "auto";
+                btn.style.bottom = "auto";
+            }
+        } catch(e) {}
+
+        function iniciar(clientX, clientY) {
+            arrastrando = true;
+            movido = false;
+            const rect = btn.getBoundingClientRect();
+            offsetX = clientX - rect.left;
+            offsetY = clientY - rect.top;
+            btn.classList.add('arrastrando');
+        }
+
+        function mover(clientX, clientY) {
+            if (!arrastrando) return;
+            movido = true;
+
+            let nuevoLeft = clientX - offsetX;
+            let nuevoTop = clientY - offsetY;
+
+            const maxLeft = window.innerWidth - btn.offsetWidth;
+            const maxTop = window.innerHeight - btn.offsetHeight;
+            nuevoLeft = Math.max(0, Math.min(nuevoLeft, maxLeft));
+            nuevoTop = Math.max(0, Math.min(nuevoTop, maxTop));
+
+            btn.style.left = nuevoLeft + "px";
+            btn.style.top = nuevoTop + "px";
+            btn.style.right = "auto";
+            btn.style.bottom = "auto";
+        }
+
+        function soltar() {
+            if (!arrastrando) return;
+            arrastrando = false;
+            btn.classList.remove('arrastrando');
+
+            try {
+                localStorage.setItem('posBotonAudio', JSON.stringify({ left: btn.style.left, top: btn.style.top }));
+            } catch(e){}
+        }
+
+        btn.addEventListener('mousedown', e => { iniciar(e.clientX, e.clientY); e.preventDefault(); });
+        window.addEventListener('mousemove', e => mover(e.clientX, e.clientY));
+        window.addEventListener('mouseup', soltar);
+
+        btn.addEventListener('touchstart', e => {
+            const t = e.touches[0];
+            iniciar(t.clientX, t.clientY);
+        }, { passive: true });
+
+        window.addEventListener('touchmove', e => {
+            if (!arrastrando) return;
+            const t = e.touches[0];
+            mover(t.clientX, t.clientY);
+        }, { passive: true });
+
+        window.addEventListener('touchend', soltar);
+
+        btn.addEventListener('click', function(e) {
+            if (movido) {
+                movido = false;
+                return;
+            }
+            reproducirBienvenida();
+        });
+    })();
+
+    function reproducirBienvenida() {
+        if (!('speechSynthesis' in window)) {
+            alert("Tu navegador no soporta audio de voz, pero podés seguir usando la app sin problema.");
+            return;
+        }
+
+        window.speechSynthesis.cancel();
+
+        let mensaje;
+
+        if (esCargaAutomatica) {
+            // Si ya hay un documento analizado, le contamos lo que el sistema detectó de verdad
+            const totalPaginas = paginasBNDetectadas + paginasColorParcialDetectadas + paginasColorDetectadas;
+            const totalActual = document.getElementById('totalCotizado').textContent;
+            mensaje = `Analicé tu documento. En total tiene ${totalPaginas} página${totalPaginas === 1 ? '' : 's'}. `;
+
+            if (paginasBNDetectadas > 0) {
+                mensaje += `${paginasBNDetectadas} en blanco y negro. `;
+            }
+            if (paginasColorParcialDetectadas > 0) {
+                mensaje += `${paginasColorParcialDetectadas} con texto y pocas imágenes a color. `;
+            }
+            if (paginasColorDetectadas > 0) {
+                mensaje += `${paginasColorDetectadas} completamente a color. `;
+            }
+
+            if (forzarTodoBN) {
+                mensaje += "Elegiste imprimir todo en blanco y negro. ";
+            }
+
+            mensaje += `El monto a pagar es ${totalActual.replace('₡', '')} colones. `;
+            mensaje += "Si todo está correcto, presioná el botón azul para enviar tu pedido.";
+        } else {
+            mensaje = "¡Hola! Bienvenido a Pedir Impresiones en Línea. " +
+                "Aquí podés enviar tus documentos para imprimirlos sin hacer fila. " +
+                "Primero escribí tu nombre completo. " +
+                "Después cargá tus archivos, podés seleccionar varios a la vez ya sean PDF o Word. " +
+                "Recordá que no se permite subir imágenes por acá; si tenés fotos, tenés que enviarlas directamente por WhatsApp. " +
+                "El sistema calculará automáticamente las páginas acumuladas y el precio. " +
+                "Cuando estés listo, presioná el botón azul que dice Enviar Pedido Digital.";
+        }
+
+        const utterancia = new SpeechSynthesisUtterance(mensaje);
+        utterancia.lang = "es-ES";
+        utterancia.rate = 1;
+
+        const voces = window.speechSynthesis.getVoices();
+        const vozEspanol = voces.find(v => v.lang && v.lang.toLowerCase().startsWith('es'));
+        if (vozEspanol) utterancia.voice = vozEspanol;
+
+        const btn = document.getElementById('btnAudioBienvenida');
+        btn.classList.add('hablando');
+        btn.textContent = "🔈";
+
+        utterancia.onend = function() {
+            btn.classList.remove('hablando');
+            btn.textContent = "🔊";
+        };
+
+        window.speechSynthesis.speak(utterancia);
+    }
+
+    window.addEventListener('load', function() {
+        setTimeout(function() {
+            try { reproducirBienvenida(); } catch(e) { console.log("Autoplay de bienvenida bloqueado por el navegador."); }
+        }, 600);
+    });
+
+    async function enviarPedidoALaNube() {
+        const cantidadHojas = document.getElementById('cantidad').value;
+        const archivos = document.getElementById('archivoDocumento').files;
+
+        if (!cantidadHojas || parseFloat(cantidadHojas) <= 0) {
+            alert("Por favor indicá cuántas páginas necesitás imprimir.");
+            return;
+        }
+
+        if (!archivos || archivos.length === 0) {
+            alert("Por favor carga al menos un archivo para poder procesar tu pedido.");
+            return;
+        }
+
+        const btn = document.getElementById('btnEnviar');
+        btn.disabled = true;
+
+        urlsArchivosSubidos = [];
+        let nombresArchivos = [];
+
+        for (let i = 0; i < archivos.length; i++) {
+            btn.textContent = `⏳ Subiendo archivo ${i + 1} de ${archivos.length}...`;
+            const formData = new FormData();
+            formData.append("file", archivos[i]);
+
+            try {
+                const response = await fetch('https://tmpfiles.org/api/v1/upload', { method: 'POST', body: formData });
+                if (!response.ok) throw new Error();
+                const respuestaJson = await response.json();
+                
+                if (respuestaJson && respuestaJson.data && respuestaJson.data.url) {
+                    const urlDescarga = respuestaJson.data.url.replace("tmpfiles.org/", "tmpfiles.org/dl/");
+                    urlsArchivosSubidos.push(urlDescarga);
+                    nombresArchivos.push(archivos[i].name);
+                }
+            } catch (err) {
+                console.error(err);
+                alert(`Error al subir el archivo: ${archivos[i].name}. Comprobá tu conexión de internet.`);
+                btn.textContent = "🚀 Enviar Pedido Digital";
+                btn.disabled = false;
+                return;
+            }
+        }
+
+        btn.textContent = "⏳ Guardando pedido...";
+        const tipo = document.getElementById('tipoImpresion').value;
+        const nombreCliente = document.getElementById('cliente').value;
+        const horaActual = new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+
+        const idPedido = Math.floor(1000 + Math.random() * 9000).toString();
+
+        fetch(`https://api.jsonbin.io/v3/b/${JSONBIN_CONFIG.binId}/latest`, {
+            method: 'GET',
+            headers: { 'X-Master-Key': JSONBIN_CONFIG.apiKey }
+        })
+        .then(res => res.json())
+        .then(data => {
+            let pedidosActuales = Array.isArray(data.record) ? data.record : [];
+
+            // El tipo de etiqueta cambia si es un documento mixto con precios desglosados,
+            // o si el cliente pidió forzar todo a Blanco y Negro pese a la detección.
+            // Si es uniforme (una sola categoría), usa la categoría REAL detectada por la IA,
+            // no la casilla manual oculta (que ya no se actualiza desde que todo es automático).
+            let tipoFinalLabel;
+            if (esCargaAutomatica && forzarTodoBN) {
+                tipoFinalLabel = `Blanco y Negro (cliente pidió ignorar color detectado)`;
+            } else if (esPedidoMixto) {
+                tipoFinalLabel = `Mixto (${paginasBNDetectadas} BN / ${paginasColorParcialDetectadas} Color Parcial / ${paginasColorDetectadas} Color)`;
+            } else if (esCargaAutomatica) {
+                if (paginasColorDetectadas > 0) {
+                    tipoFinalLabel = "A Color";
+                } else if (paginasColorParcialDetectadas > 0) {
+                    tipoFinalLabel = "A Color (Texto con Pocas Imágenes)";
+                } else {
+                    tipoFinalLabel = "Blanco y Negro";
+                }
+            } else {
+                tipoFinalLabel = (tipo === 'bn' ? "Blanco y Negro" : "A Color");
+            }
+
+            pedidosActuales.push({
+                id: idPedido,
+                cliente: nombreCliente,
+                hora: horaActual,
+                cantidad: cantidadHojas,
+                tipoLabel: tipoFinalLabel,
+                total: totalGlobal,
+                estado: "Pendiente",
+                documentoUrl: urlsArchivosSubidos.join(', '),
+                documentoNombre: nombresArchivos.join(', '),
+                fueAutomatico: esCargaAutomatica 
+            });
+
+            return fetch(`https://api.jsonbin.io/v3/b/${JSONBIN_CONFIG.binId}`, {
+                method: 'PUT',
+                headers: { 
+                    'Content-Type': 'application/json', 
+                    'X-Master-Key': JSONBIN_CONFIG.apiKey 
+                },
+                body: JSON.stringify(pedidosActuales)
+            });
+        })
+        .then(res => {
+            if (res.ok) {
+                localStorage.setItem('miCentroImpresion_nombreCliente', nombreCliente);
+                alert("¡Pedido enviado con éxito! Tu orden masiva ya está en la pantalla del taller.");
+                document.getElementById('formPedido').reset();
+                document.getElementById('statusIA').style.display = "none";
+                document.getElementById('panelMixtoIA').style.display = "none";
+                document.getElementById('panelPreferenciaCliente').style.display = "none";
+                document.getElementById('labelCotizacion').textContent = "Monto Estimado a Pagar:";
+                
+                document.getElementById('grupoCantidad').style.display = "flex";
+                document.getElementById('grupoTipoImpresion').style.display = "flex";
+                document.getElementById('panelOpcionesImpresion').style.display = "none";
+                
+                document.getElementById('cantidad').disabled = false;
+                document.getElementById('tipoImpresion').disabled = false;
+                
+                esCargaAutomatica = false; 
+                esPedidoMixto = false;
+                forzarTodoBN = false;
+                calcularCotizacion();
+            } else {
+                alert("Hubo un problema al guardar el pedido en la base de datos.");
+            }
+        })
+        .catch(err => {
+            console.error(err);
+            alert("Error de conexión al guardar los datos del pedido.");
+        })
+        .finally(() => {
+            btn.textContent = "🚀 Enviar Pedido Digital";
+            btn.disabled = false;
+        });
+    }
+</script>
+</body>
+</html>
