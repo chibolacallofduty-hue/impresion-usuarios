@@ -498,6 +498,100 @@
             100% { transform: translateY(110vh) rotate(720deg); opacity: 0; }
         }
 
+        /* Panel de modificadores de acabado */
+        .panel-acabado {
+            background: #fff7ed;
+            border: 1.5px solid #fed7aa;
+            border-radius: 14px;
+            padding: 14px 16px;
+            margin-bottom: 16px;
+            display: none;
+        }
+
+        .panel-acabado-titulo {
+            font-size: 0.75rem;
+            font-weight: 700;
+            color: #9a3412;
+            text-transform: uppercase;
+            letter-spacing: 0.6px;
+            margin-bottom: 12px;
+        }
+
+        .acabado-fila {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 10px;
+        }
+
+        .acabado-fila:last-child {
+            margin-bottom: 0;
+        }
+
+        .acabado-label {
+            font-size: 0.88rem;
+            font-weight: 600;
+            color: #7c2d12;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .acabado-label span.badge-precio {
+            font-size: 0.75rem;
+            font-weight: 700;
+            background: #fed7aa;
+            color: #9a3412;
+            border-radius: 6px;
+            padding: 1px 6px;
+        }
+
+        /* Botones duplex/simplex */
+        .duplex-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 8px;
+            margin-top: 10px;
+        }
+
+        .duplex-card {
+            border: 1.5px solid var(--border-color);
+            background: #ffffff;
+            border-radius: 10px;
+            padding: 10px 8px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.15s ease;
+            user-select: none;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        .duplex-card.seleccionada {
+            border-color: #d97706;
+            background: #fff7ed;
+            box-shadow: 0 0 0 1px #d97706 inset;
+        }
+
+        .duplex-card .duplex-icono {
+            font-size: 1.2rem;
+            display: block;
+            margin-bottom: 3px;
+        }
+
+        .duplex-card .duplex-nombre {
+            font-size: 0.82rem;
+            font-weight: 700;
+            color: var(--text-dark);
+            display: block;
+        }
+
+        .duplex-card .duplex-tarifa {
+            font-size: 0.72rem;
+            color: var(--text-muted);
+            display: block;
+            margin-top: 1px;
+        }
+
         /* Panel de pedido actual del día */
         #panelPedidoActual {
             display: none;
@@ -642,6 +736,37 @@
             </label>
         </div>
 
+        <!-- Panel de acabado (grapado, tipo de papel, dúplex) -->
+        <div class="panel-acabado" id="panelAcabado">
+            <div class="panel-acabado-titulo">✨ Opciones de Acabado</div>
+
+            <!-- Grapado -->
+            <div class="acabado-fila">
+                <label style="display:flex; align-items:center; gap:8px; cursor:pointer;" class="acabado-label">
+                    <input type="checkbox" id="chkGrapado" onchange="calcularCotizacion()" style="width:auto; height:auto; accent-color:#d97706;">
+                    📌 Grapado
+                    <span class="badge-precio">+₡0</span>
+                </label>
+            </div>
+
+            <!-- Dúplex -->
+            <div style="margin-top:12px;">
+                <div class="acabado-label" style="margin-bottom:6px;">🖨️ Configuración de impresión</div>
+                <div class="duplex-grid">
+                    <div class="duplex-card seleccionada" id="optSimplex" onclick="seleccionarDuplex('simplex')">
+                        <span class="duplex-icono">📄</span>
+                        <span class="duplex-nombre">Una sola cara</span>
+                        <span class="duplex-tarifa">Simplex (normal)</span>
+                    </div>
+                    <div class="duplex-card" id="optDuplex" onclick="seleccionarDuplex('duplex')">
+                        <span class="duplex-icono">📋</span>
+                        <span class="duplex-nombre">Doble cara</span>
+                        <span class="duplex-tarifa">Dúplex (−₡10 por hoja)</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
         <!-- Caja de cotización con precio antes/después del crédito -->
         <div class="box-cotizacion">
             <div id="labelCotizacion">Monto Estimado a Pagar:</div>
@@ -688,6 +813,7 @@
     let totalGlobal = 0;
     let totalSinCredito = 0;
     let urlsArchivosSubidos = [];
+    let modoImpresion = 'simplex'; // 'simplex' o 'duplex'
     
     let paginasBNDetectadas = 0;
     let paginasColorParcialDetectadas = 0;
@@ -1138,6 +1264,21 @@
             totalGlobal += 500;
         }
 
+        // Mostrar panel de acabado cuando hay páginas
+        const panelAcabado = document.getElementById('panelAcabado');
+        if (totalHojas > 0) {
+            panelAcabado.style.display = 'block';
+        } else {
+            panelAcabado.style.display = 'none';
+        }
+
+        // Descuento dúplex: −₡10 por hoja impresa por ambos lados
+        // En dúplex, cada 2 páginas = 1 hoja física, ahorramos ₡10 por hoja
+        if (modoImpresion === 'duplex') {
+            const hojasDoblesCara = Math.floor(totalHojas / 2);
+            totalGlobal = Math.max(0, totalGlobal - (hojasDoblesCara * 10));
+        }
+
         // Aplicar crédito automáticamente
         descuentoAplicado = 0;
         const nombreCliente = document.getElementById('cliente').value.trim();
@@ -1173,6 +1314,13 @@
         } else {
             tiempoDiv.style.display = "none";
         }
+    }
+
+    function seleccionarDuplex(modo) {
+        modoImpresion = modo;
+        document.getElementById('optSimplex').classList.toggle('seleccionada', modo === 'simplex');
+        document.getElementById('optDuplex').classList.toggle('seleccionada', modo === 'duplex');
+        calcularCotizacion();
     }
 
     function seleccionarModalidadImpresion(modalidad) {
@@ -1290,6 +1438,7 @@
             document.getElementById('vistaPreviaGaleria').innerHTML = '';
             document.getElementById('cantidad').value = 0;
             document.getElementById('statusIA').innerHTML = '';
+            document.getElementById('panelAcabado').style.display = 'none';
         }
     }
 
@@ -1650,6 +1799,8 @@
         const copiasFinal = document.getElementById('grupoCopias').style.display !== "none"
             ? (parseInt(document.getElementById('copias').value, 10) || 1) : 1;
         const engargoladoFinal = document.getElementById('chkEngargolado').checked;
+        const grapadoFinal = document.getElementById('chkGrapado').checked;
+        const modoImpresionFinal = modoImpresion;
 
         const idPedido = Date.now().toString() + Math.floor(100 + Math.random() * 899).toString();
 
@@ -1688,6 +1839,8 @@
             fueAutomatico: esCargaAutomatica,
             copias: copiasFinal,
             engargolado: engargoladoFinal,
+            grapado: grapadoFinal,
+            modoImpresion: modoImpresionFinal,
             metodoPago: "efectivo",
             listo: false
         });
@@ -1738,6 +1891,11 @@
                 document.getElementById('panelOpcionesImpresion').style.display = "none";
                 document.getElementById('grupoCopias').style.display = "none";
                 document.getElementById('sugerenciaEngargolado').style.display = "none";
+                document.getElementById('panelAcabado').style.display = "none";
+                document.getElementById('chkGrapado').checked = false;
+                modoImpresion = 'simplex';
+                document.getElementById('optSimplex').classList.add('seleccionada');
+                document.getElementById('optDuplex').classList.remove('seleccionada');
                 document.getElementById('precioAntesDiv').style.display = "none";
                 document.getElementById('descuentoCreditoLabel').style.display = "none";
                 document.getElementById('cantidad').disabled = false;
@@ -1838,6 +1996,7 @@
             if (paginasColorDetectadas > 0) mensaje += `${paginasColorDetectadas} completamente a color. `;
             if (forzarTodoBN) mensaje += "Elegiste imprimir todo en blanco y negro. ";
             mensaje += `El monto a pagar es ${totalActual.replace('₡', '')} colones. `;
+            mensaje += "Podés elegir papel satinado o impresión a doble cara en las opciones de acabado. ";
             mensaje += "Si todo está correcto, presioná el botón azul para enviar tu pedido.";
         } else {
             mensaje = "¡Hola! Bienvenido a Pedir Impresiones en Línea. " +
