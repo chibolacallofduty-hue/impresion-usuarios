@@ -2717,6 +2717,19 @@
                 totalSinCredito = 0;
                 descuentoAplicado = 0;
 
+                // Limpiar por completo los archivos del pedido anterior: tanto
+                // las variables internas como las miniaturas/tarjetas en pantalla,
+                // para que el próximo pedido empiece de cero.
+                _archivosSeleccionados = [];
+                _paginasPorArchivo = [];
+                urlsArchivosSubidos = [];
+                paginasBNDetectadas = 0;
+                paginasColorParcialDetectadas = 0;
+                paginasColorDetectadas = 0;
+                document.getElementById('vistaPreviaGaleria').innerHTML = "";
+                document.getElementById('vistaPreviaContenedor').style.display = "none";
+                renderListaArchivos();
+
                 calcularCotizacion();
                 revisarPuntosCliente(nombreCliente, telefonoCliente);
                 mostrarPedidoDelDia();
@@ -2840,9 +2853,29 @@
             catch (e) { return false; }
         }
 
+        // Además de consultar Notification.permission, guardamos en localStorage
+        // si la persona ya respondió (aceptó o rechazó). Esto evita que el aviso
+        // vuelva a aparecer en navegadores/PWAs donde el permiso del sistema no
+        // se recuerda bien entre una sesión y otra de la app instalada.
+        function yaRespondioAntes() {
+            try { return localStorage.getItem('notisPermisoDecidido') === '1'; }
+            catch (e) { return false; }
+        }
+
+        function marcarComoRespondido() {
+            try { localStorage.setItem('notisPermisoDecidido', '1'); } catch (e) {}
+        }
+
+        // Si el navegador ya reporta un permiso decidido (granted o denied),
+        // igual dejamos guardada la marca para más adelante.
+        if (soportado && Notification.permission !== 'default') {
+            marcarComoRespondido();
+        }
+
         // Mostrar el banner solo si el navegador soporta notificaciones,
-        // todavía no se decidió el permiso, y el usuario no lo cerró antes.
-        if (soportado && Notification.permission === 'default' && !ocultoManualmente()) {
+        // todavía no se decidió el permiso, nadie lo cerró antes, y tampoco
+        // hay un registro previo de que ya se respondió.
+        if (soportado && Notification.permission === 'default' && !ocultoManualmente() && !yaRespondioAntes()) {
             banner.classList.add('visible');
         }
 
@@ -2851,6 +2884,7 @@
                 if (!soportado) return;
                 const permiso = await Notification.requestPermission();
                 banner.classList.remove('visible');
+                marcarComoRespondido();
                 if (permiso === 'granted') {
                     try {
                         const reg = await navigator.serviceWorker.ready;
