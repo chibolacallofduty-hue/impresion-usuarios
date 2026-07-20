@@ -1027,6 +1027,14 @@
             color: #94a3b8; font-weight: 700; font-size: 1.05rem;
         }
         .tc-campo-monto input { padding-left: 34px; font-weight: 700; font-size: 1.05rem; }
+        .tc-monto-feedback {
+            display: none;
+            font-size: 0.75rem;
+            color: #f43f5e;
+            font-weight: 500;
+            margin-top: 6px;
+        }
+        .tc-monto-feedback.visible { display: block; }
 
         .tc-resultado {
             font-size: 0.85rem;
@@ -1225,6 +1233,7 @@
                         <span>₡</span>
                         <input type="number" id="transferMonto" placeholder="0.00" min="1" step="1">
                     </div>
+                    <div id="transferMontoFeedback" class="tc-monto-feedback"></div>
                 </div>
 
                 <div class="tc-campo" style="margin-bottom:4px;">
@@ -1234,7 +1243,7 @@
 
                 <div class="tc-btn-row">
                     <button type="button" class="tc-btn-secundario" onclick="tcVolverAInicio()">Atrás</button>
-                    <button type="button" class="btn-enviar" id="btnTransferContinuar" onclick="continuarTransferenciaCredito()">Continuar</button>
+                    <button type="button" class="btn-enviar" id="btnTransferContinuar" disabled onclick="continuarTransferenciaCredito()">Continuar</button>
                 </div>
             </div>
 
@@ -1816,6 +1825,7 @@
     let _transferDestino = null; // { key, nombre, telefono }
     let _transferBusquedaTimeout = null;
     let _transferBuscando = false;
+    let _transferCreditoDisponible = 0;
 
     // A partir de la clave del cliente (nombre_normalizado__telefono) reconstruye
     // un nombre presentable, ya que el sistema no guarda el nombre con mayúsculas
@@ -1868,6 +1878,29 @@
         });
     }
 
+    // Igual que el "validateForm()" del diseño de referencia: valida en vivo
+    // que haya destinatario encontrado y un monto válido (>0 y <= crédito
+    // disponible), mostrando el aviso de saldo insuficiente y habilitando
+    // o deshabilitando "Continuar" según corresponda.
+    function tcValidarFormulario() {
+        const montoInput = document.getElementById('transferMonto');
+        const feedback = document.getElementById('transferMontoFeedback');
+        const btnContinuar = document.getElementById('btnTransferContinuar');
+        const monto = parseFloat(montoInput.value) || 0;
+
+        const usuarioValido = _transferDestino !== null;
+        const montoValido = monto > 0 && monto <= _transferCreditoDisponible;
+
+        if (monto > _transferCreditoDisponible && monto > 0) {
+            feedback.textContent = 'Crédito insuficiente para realizar esta transferencia.';
+            feedback.classList.add('visible');
+        } else {
+            feedback.classList.remove('visible');
+        }
+
+        btnContinuar.disabled = !(usuarioValido && montoValido);
+    }
+
     async function abrirTransferenciaCredito() {
         const nombreRemitente = document.getElementById('cliente').value.trim();
         const telefonoRemitente = document.getElementById('telefonoCliente').value.trim();
@@ -1877,13 +1910,6 @@
         }
 
         _transferDestino = null;
-        document.getElementById('transferTelefono').value = '';
-        document.getElementById('transferMonto').value = '';
-        document.getElementById('transferDescripcion').value = '';
-        const resultadoDiv = document.getElementById('transferResultadoBusqueda');
-        resultadoDiv.className = 'tc-resultado';
-        resultadoDiv.textContent = '';
-
         document.getElementById('transferOverlay').classList.add('visible');
         tcMostrarPantalla('tcHome');
         await tcCargarInicio();
@@ -1891,6 +1917,7 @@
         const inputTel = document.getElementById('transferTelefono');
         inputTel.oninput = function() {
             _transferDestino = null;
+            tcValidarFormulario();
             if (_transferBusquedaTimeout) clearTimeout(_transferBusquedaTimeout);
             _transferBusquedaTimeout = setTimeout(buscarDestinatarioTransferencia, 550);
         };
@@ -1898,6 +1925,9 @@
             if (_transferBusquedaTimeout) clearTimeout(_transferBusquedaTimeout);
             buscarDestinatarioTransferencia();
         };
+
+        const inputMonto = document.getElementById('transferMonto');
+        inputMonto.oninput = tcValidarFormulario;
     }
 
     // Trae del sistema real (Firebase) el crédito disponible y la cantidad
@@ -1916,6 +1946,7 @@
             const keyRemitente = getClienteKey(nombreRemitente, telefonoRemitente);
             const clienteRemitente = db.clientes[keyRemitente] || { credito: 0 };
             const credito = clienteRemitente.credito || 0;
+            _transferCreditoDisponible = credito;
             const hechas = obtenerTransferenciasHoy(clienteRemitente);
             const limite = TRANSFERENCIA_CONFIG.limiteTransferencias;
 
@@ -1936,6 +1967,16 @@
     }
 
     function tcIrAFormulario() {
+        document.getElementById('transferTelefono').value = '';
+        document.getElementById('transferMonto').value = '';
+        document.getElementById('transferDescripcion').value = '';
+        const resultadoDiv = document.getElementById('transferResultadoBusqueda');
+        resultadoDiv.className = 'tc-resultado';
+        resultadoDiv.textContent = '';
+        document.getElementById('transferMontoFeedback').classList.remove('visible');
+        _transferDestino = null;
+        document.getElementById('btnTransferContinuar').disabled = true;
+
         tcMostrarPantalla('tcForm');
         setTimeout(() => document.getElementById('transferTelefono').focus(), 150);
     }
@@ -1965,6 +2006,7 @@
             _transferDestino = null;
             resultadoDiv.className = 'tc-resultado';
             resultadoDiv.textContent = '';
+            tcValidarFormulario();
             return;
         }
 
@@ -1997,6 +2039,7 @@
             resultadoDiv.textContent = 'No se pudo verificar el número. Probá de nuevo.';
         } finally {
             _transferBuscando = false;
+            tcValidarFormulario();
         }
     }
 
@@ -2027,6 +2070,7 @@
             const keyRemitente = getClienteKey(nombreRemitente, telefonoRemitente);
             const clienteRemitente = db.clientes[keyRemitente] || { pedidos: 0, credito: 0 };
             const creditoDisponible = clienteRemitente.credito || 0;
+            _transferCreditoDisponible = creditoDisponible;
             const transferenciasHechas = obtenerTransferenciasHoy(clienteRemitente);
 
             if (transferenciasHechas >= TRANSFERENCIA_CONFIG.limiteTransferencias) {
@@ -2062,8 +2106,8 @@
         } catch (e) {
             mostrarAviso('No se pudo verificar la transferencia. Probá de nuevo.');
         } finally {
-            btn.disabled = false;
             btn.textContent = textoOriginal;
+            tcValidarFormulario();
         }
     }
 
