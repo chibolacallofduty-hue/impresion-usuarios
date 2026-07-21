@@ -955,7 +955,64 @@
 
         .tc-body { padding: 24px 24px 24px 24px; }
         .tc-screen { display: none; }
-        .tc-screen.activa { display: block; }
+        .tc-screen.activa { display: block; animation: tcScreenIn 0.32s cubic-bezier(.22,1,.36,1) both; }
+        @keyframes tcScreenIn {
+            from { opacity: 0; transform: translateX(10px); }
+            to { opacity: 1; transform: translateX(0); }
+        }
+
+        /* Indicador de progreso (pasos) */
+        .tc-steps { display: flex; align-items: center; justify-content: center; gap: 6px; margin-bottom: 18px; }
+        .tc-steps .tc-step-dot { width: 6px; height: 6px; border-radius: 999px; background: #e2e8f0; transition: all 0.25s ease; }
+        .tc-steps .tc-step-dot.activo { width: 20px; background: #4f46e5; }
+        .tc-steps .tc-step-dot.hecho { background: #a5b4fc; }
+
+        /* Avatar de iniciales para el destinatario */
+        .tc-avatar {
+            width: 34px; height: 34px; border-radius: 50%;
+            display: inline-flex; align-items: center; justify-content: center;
+            color: #fff; font-weight: 800; font-size: 0.85rem;
+            flex-shrink: 0;
+        }
+        .tc-avatar-lg { width: 44px; height: 44px; font-size: 1.05rem; }
+        .tc-resultado-fila { display: flex; align-items: center; gap: 10px; }
+        .tc-resultado-texto { display: flex; flex-direction: column; }
+        .tc-resultado-texto .principal { font-weight: 600; font-size: 0.85rem; }
+        .tc-resultado-texto .secundario { font-size: 0.72rem; color: #94a3b8; }
+
+        .tc-balance-value.tc-cargando { opacity: 0.5; }
+        @keyframes tcShimmer {
+            0%, 100% { opacity: 0.5; }
+            50% { opacity: 0.9; }
+        }
+        .tc-cargando { animation: tcShimmer 1.1s ease-in-out infinite; }
+
+        /* Filas informativas extra (saldo antes/después) */
+        .tc-info-extra {
+            margin-top: 10px;
+            padding-top: 10px;
+            border-top: 1px dashed #e2e8f0;
+        }
+        .tc-info-extra .fila { display: flex; justify-content: space-between; font-size: 0.76rem; color: #94a3b8; padding: 3px 0; }
+        .tc-info-extra .fila b { color: #64748b; font-weight: 700; }
+        .tc-info-extra .fila.destaca b { color: #4f46e5; }
+
+        .tc-success-icono {
+            animation: tcPopIcon 0.5s cubic-bezier(.26,1.55,.44,1) both;
+        }
+        @keyframes tcPopIcon {
+            0% { transform: scale(0.4); opacity: 0; }
+            70% { transform: scale(1.08); opacity: 1; }
+            100% { transform: scale(1); }
+        }
+        .tc-success-icono svg {
+            stroke-dasharray: 30;
+            stroke-dashoffset: 30;
+            animation: tcDrawCheck 0.4s ease 0.25s forwards;
+        }
+        @keyframes tcDrawCheck {
+            to { stroke-dashoffset: 0; }
+        }
 
         .tc-balance-card {
             background: linear-gradient(135deg, #1e293b 0%, #020617 100%);
@@ -1203,7 +1260,7 @@
             <div id="tcHome" class="tc-screen activa">
                 <div class="tc-balance-card">
                     <div class="tc-balance-label">Crédito disponible</div>
-                    <div class="tc-balance-value" id="tcHomeBalance">₡0.00</div>
+                    <div class="tc-balance-value">₡<span id="tcHomeBalanceNum" class="tc-cargando">···</span></div>
                 </div>
 
                 <div id="tcAlertaLimite" class="tc-alert">
@@ -1219,6 +1276,7 @@
 
             <!-- 2. PANTALLA DE FORMULARIO -->
             <div id="tcForm" class="tc-screen">
+                <div class="tc-steps"><span class="tc-step-dot activo"></span><span class="tc-step-dot"></span><span class="tc-step-dot"></span></div>
                 <div class="tc-titulo">Detalles del envío</div>
 
                 <div class="tc-campo">
@@ -1231,7 +1289,7 @@
                     <label for="transferMonto">Monto a transferir (₡)</label>
                     <div class="tc-campo-monto">
                         <span>₡</span>
-                        <input type="number" id="transferMonto" placeholder="0.00" min="1" step="1">
+                        <input type="text" inputmode="numeric" id="transferMonto" placeholder="0" autocomplete="off">
                     </div>
                     <div id="transferMontoFeedback" class="tc-monto-feedback"></div>
                 </div>
@@ -1244,6 +1302,7 @@
 
             <!-- 3. PANTALLA DE CONFIRMACIÓN -->
             <div id="tcConfirm" class="tc-screen">
+                <div class="tc-steps"><span class="tc-step-dot hecho"></span><span class="tc-step-dot activo"></span><span class="tc-step-dot"></span></div>
                 <div class="tc-confirm-icono">
                     <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"/></svg>
                 </div>
@@ -1253,7 +1312,10 @@
                 <div class="tc-confirm-box">
                     <div class="tc-confirm-fila">
                         <span class="lbl">Destinatario</span>
-                        <span class="val" id="transferConfNombre">—</span>
+                        <span class="val" style="display:flex; align-items:center; gap:8px;">
+                            <span class="tc-avatar" id="tcConfirmAvatar"></span>
+                            <span id="transferConfNombre">—</span>
+                        </span>
                     </div>
                     <div class="tc-confirm-fila">
                         <span class="lbl">Teléfono</span>
@@ -1262,6 +1324,11 @@
                     <div class="tc-confirm-fila tc-confirm-monto-fila">
                         <span class="lbl">Monto Total</span>
                         <span class="val" id="transferConfMonto">₡0.00</span>
+                    </div>
+
+                    <div class="tc-info-extra">
+                        <div class="fila"><span>Saldo actual</span><b id="tcConfirmSaldoActual">₡0</b></div>
+                        <div class="fila destaca"><span>Saldo después del envío</span><b id="tcConfirmSaldoDespues">₡0</b></div>
                     </div>
                 </div>
 
@@ -1273,6 +1340,7 @@
 
             <!-- 4. PANTALLA DE ÉXITO (COMPROBANTE) -->
             <div id="tcSuccess" class="tc-screen">
+                <div class="tc-steps"><span class="tc-step-dot hecho"></span><span class="tc-step-dot hecho"></span><span class="tc-step-dot activo"></span></div>
                 <div class="tc-success-wrap">
                     <div class="tc-success-icono">
                         <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg>
@@ -1288,6 +1356,8 @@
                             <span style="font-size:0.85rem; font-weight:700; color:#1e293b;" id="tcReciboDestino">A —</span>
                             <span class="val3" id="tcReciboMonto">₡0.00</span>
                         </div>
+                        <div class="tc-receipt-divisor"></div>
+                        <div class="tc-receipt-fila"><span>Tu nuevo saldo:</span><b id="tcReciboSaldoNuevo">₡0</b></div>
                     </div>
 
                     <button type="button" class="tc-btn-volver" onclick="tcVolverAInicio()">Volver al Inicio</button>
@@ -1869,15 +1939,45 @@
         });
     }
 
+    // Avatar de iniciales para el destinatario: color determinístico según
+    // el nombre, para que cada cliente se vea siempre con el mismo color.
+    const TC_COLORES_AVATAR = ['#6366f1', '#8b5cf6', '#ec4899', '#f59e0b', '#10b981', '#0ea5e9', '#f43f5e', '#14b8a6'];
+    function tcColorAvatar(nombre) {
+        let hash = 0;
+        for (let i = 0; i < (nombre || '').length; i++) hash = nombre.charCodeAt(i) + ((hash << 5) - hash);
+        return TC_COLORES_AVATAR[Math.abs(hash) % TC_COLORES_AVATAR.length];
+    }
+    function tcInicial(nombre) {
+        return (nombre || '?').trim().charAt(0).toUpperCase();
+    }
+    function tcPintarAvatar(el, nombre) {
+        if (!el) return;
+        el.textContent = tcInicial(nombre);
+        el.style.background = tcColorAvatar(nombre || '');
+    }
+
+    // Formatea en vivo el campo de monto con separador de miles (mismo
+    // estilo que formatColones ya usa en el resto de la app) y devuelve
+    // el valor numérico real, sin espacios.
+    function tcFormatearCampoMonto() {
+        const input = document.getElementById('transferMonto');
+        const soloDigitos = input.value.replace(/\D/g, '').slice(0, 9);
+        input.value = soloDigitos ? formatColones(Number(soloDigitos)) : '';
+        tcValidarFormulario();
+    }
+    function tcParsearMonto() {
+        const crudo = document.getElementById('transferMonto').value.replace(/\D/g, '');
+        return crudo ? parseInt(crudo, 10) : 0;
+    }
+
     // Igual que el "validateForm()" del diseño de referencia: valida en vivo
     // que haya destinatario encontrado y un monto válido (>0 y <= crédito
     // disponible), mostrando el aviso de saldo insuficiente y habilitando
     // o deshabilitando "Continuar" según corresponda.
     function tcValidarFormulario() {
-        const montoInput = document.getElementById('transferMonto');
         const feedback = document.getElementById('transferMontoFeedback');
         const btnContinuar = document.getElementById('btnTransferContinuar');
-        const monto = parseFloat(montoInput.value) || 0;
+        const monto = tcParsearMonto();
 
         const usuarioValido = _transferDestino !== null;
         const montoValido = monto > 0 && monto <= _transferCreditoDisponible;
@@ -1918,7 +2018,7 @@
         };
 
         const inputMonto = document.getElementById('transferMonto');
-        inputMonto.oninput = tcValidarFormulario;
+        inputMonto.oninput = tcFormatearCampoMonto;
     }
 
     // Trae del sistema real (Firebase) el crédito disponible y la cantidad
@@ -1926,22 +2026,24 @@
     async function tcCargarInicio() {
         const nombreRemitente = document.getElementById('cliente').value.trim();
         const telefonoRemitente = document.getElementById('telefonoCliente').value.trim();
-        const balanceEl = document.getElementById('tcHomeBalance');
+        const balanceEl = document.getElementById('tcHomeBalanceNum');
         const contadorEl = document.getElementById('tcHeaderContador');
         const alertaEl = document.getElementById('tcAlertaLimite');
         const btnIr = document.getElementById('tcBtnIrFormulario');
 
-        balanceEl.textContent = '...';
+        balanceEl.classList.add('tc-cargando');
         try {
             const db = await getClientesDB();
             const keyRemitente = getClienteKey(nombreRemitente, telefonoRemitente);
             const clienteRemitente = db.clientes[keyRemitente] || { credito: 0 };
             const credito = clienteRemitente.credito || 0;
+            const creditoAnterior = _transferCreditoDisponible || 0;
             _transferCreditoDisponible = credito;
             const hechas = obtenerTransferenciasHoy(clienteRemitente);
             const limite = TRANSFERENCIA_CONFIG.limiteTransferencias;
 
-            balanceEl.textContent = '₡' + formatColones(credito);
+            balanceEl.classList.remove('tc-cargando');
+            animarContadorCredito(balanceEl, creditoAnterior, credito, 650);
             contadorEl.textContent = `Envíos hoy: ${hechas}/${limite}`;
 
             const limiteAlcanzado = hechas >= limite;
@@ -1953,7 +2055,8 @@
                 btnIr.textContent = '🚀 Iniciar Transferencia';
             }
         } catch (e) {
-            balanceEl.textContent = '₡0';
+            balanceEl.classList.remove('tc-cargando');
+            balanceEl.textContent = '0';
         }
     }
 
@@ -2021,7 +2124,25 @@
             } else {
                 _transferDestino = encontrado;
                 resultadoDiv.className = 'tc-resultado ok';
-                resultadoDiv.textContent = `✅ Destinatario encontrado: ${encontrado.nombre}`;
+                resultadoDiv.innerHTML = '';
+                const fila = document.createElement('div');
+                fila.className = 'tc-resultado-fila';
+                const avatar = document.createElement('span');
+                avatar.className = 'tc-avatar';
+                tcPintarAvatar(avatar, encontrado.nombre);
+                const textos = document.createElement('div');
+                textos.className = 'tc-resultado-texto';
+                const principal = document.createElement('span');
+                principal.className = 'principal';
+                principal.textContent = '✅ ' + encontrado.nombre;
+                const secundario = document.createElement('span');
+                secundario.className = 'secundario';
+                secundario.textContent = 'Destinatario verificado';
+                textos.appendChild(principal);
+                textos.appendChild(secundario);
+                fila.appendChild(avatar);
+                fila.appendChild(textos);
+                resultadoDiv.appendChild(fila);
             }
         } catch (e) {
             _transferDestino = null;
@@ -2038,14 +2159,13 @@
     async function continuarTransferenciaCredito() {
         const nombreRemitente = document.getElementById('cliente').value.trim();
         const telefonoRemitente = document.getElementById('telefonoCliente').value.trim();
-        const montoTexto = document.getElementById('transferMonto').value;
-        const monto = Math.floor(Number(montoTexto));
+        const monto = tcParsearMonto();
 
         if (!_transferDestino) {
             mostrarAviso('Buscá y confirmá primero un número de teléfono registrado.');
             return;
         }
-        if (!montoTexto || isNaN(monto) || monto <= 0) {
+        if (!monto || monto <= 0) {
             mostrarAviso('Ingresá un monto válido, mayor a ₡0.');
             return;
         }
@@ -2083,6 +2203,9 @@
             document.getElementById('transferConfMonto').textContent = '₡' + formatColones(monto);
             document.getElementById('transferConfNombre').textContent = _transferDestino.nombre;
             document.getElementById('transferConfTelefono').textContent = document.getElementById('transferTelefono').value.trim();
+            tcPintarAvatar(document.getElementById('tcConfirmAvatar'), _transferDestino.nombre);
+            document.getElementById('tcConfirmSaldoActual').textContent = '₡' + formatColones(creditoDisponible);
+            document.getElementById('tcConfirmSaldoDespues').textContent = '₡' + formatColones(creditoDisponible - monto);
 
             tcMostrarPantalla('tcConfirm');
         } catch (e) {
@@ -2100,7 +2223,7 @@
     async function confirmarTransferenciaCredito() {
         const nombreRemitente = document.getElementById('cliente').value.trim();
         const telefonoRemitente = document.getElementById('telefonoCliente').value.trim();
-        const monto = Math.floor(Number(document.getElementById('transferMonto').value));
+        const monto = tcParsearMonto();
 
         if (!_transferDestino || !monto || monto <= 0) {
             mostrarAviso('Hubo un problema con los datos de la transferencia. Intentá de nuevo.');
@@ -2191,7 +2314,11 @@
             document.getElementById('tcReciboFecha').textContent = `${ahora.toLocaleDateString('es-CR')} · ${horaAMPM(ahora)}`;
             document.getElementById('tcReciboDestino').textContent = 'A ' + destinoFresco.nombre;
             document.getElementById('tcReciboMonto').textContent = '₡' + formatColones(monto);
+            document.getElementById('tcReciboSaldoNuevo').textContent = '₡' + formatColones(clienteRemitente.credito);
             tcMostrarPantalla('tcSuccess');
+
+            // Mantener el crédito cacheado sincronizado para la próxima operación en esta sesión
+            _transferCreditoDisponible = clienteRemitente.credito;
 
             // Actualizar de inmediato el crédito mostrado al remitente en el resto de la app
             await revisarPuntosCliente(nombreRemitente, telefonoRemitente);
@@ -2199,7 +2326,7 @@
             mostrarAviso('No se pudo completar la transferencia. Probá de nuevo.');
         } finally {
             btn.disabled = false;
-            btn.textContent = 'Confirmar transferencia';
+            btn.textContent = 'Enviar Crédito';
         }
     }
 
