@@ -1236,11 +1236,6 @@
                     <div id="transferMontoFeedback" class="tc-monto-feedback"></div>
                 </div>
 
-                <div class="tc-campo" style="margin-bottom:4px;">
-                    <label for="transferDescripcion">Descripción o comentario (opcional)</label>
-                    <input type="text" id="transferDescripcion" placeholder="Ej: Para tu próxima impresión" maxlength="120">
-                </div>
-
                 <div class="tc-btn-row">
                     <button type="button" class="tc-btn-secundario" onclick="tcVolverAInicio()">Atrás</button>
                     <button type="button" class="btn-enviar" id="btnTransferContinuar" disabled onclick="continuarTransferenciaCredito()">Continuar</button>
@@ -1263,10 +1258,6 @@
                     <div class="tc-confirm-fila">
                         <span class="lbl">Teléfono</span>
                         <span class="val" id="transferConfTelefono">—</span>
-                    </div>
-                    <div class="tc-confirm-fila" id="transferConfDescFila" style="display:none;">
-                        <span class="lbl">Descripción</span>
-                        <span class="val" id="transferConfDescripcion">—</span>
                     </div>
                     <div class="tc-confirm-fila tc-confirm-monto-fila">
                         <span class="lbl">Monto Total</span>
@@ -1969,7 +1960,6 @@
     function tcIrAFormulario() {
         document.getElementById('transferTelefono').value = '';
         document.getElementById('transferMonto').value = '';
-        document.getElementById('transferDescripcion').value = '';
         const resultadoDiv = document.getElementById('transferResultadoBusqueda');
         resultadoDiv.className = 'tc-resultado';
         resultadoDiv.textContent = '';
@@ -2090,17 +2080,9 @@
             }
             _transferDestino = destinoFresco;
 
-            const descripcion = document.getElementById('transferDescripcion').value.trim();
             document.getElementById('transferConfMonto').textContent = '₡' + formatColones(monto);
             document.getElementById('transferConfNombre').textContent = _transferDestino.nombre;
             document.getElementById('transferConfTelefono').textContent = document.getElementById('transferTelefono').value.trim();
-            const descFila = document.getElementById('transferConfDescFila');
-            if (descripcion) {
-                descFila.style.display = 'flex';
-                document.getElementById('transferConfDescripcion').textContent = descripcion;
-            } else {
-                descFila.style.display = 'none';
-            }
 
             tcMostrarPantalla('tcConfirm');
         } catch (e) {
@@ -2119,7 +2101,6 @@
         const nombreRemitente = document.getElementById('cliente').value.trim();
         const telefonoRemitente = document.getElementById('telefonoCliente').value.trim();
         const monto = Math.floor(Number(document.getElementById('transferMonto').value));
-        const descripcion = document.getElementById('transferDescripcion').value.trim();
 
         if (!_transferDestino || !monto || monto <= 0) {
             mostrarAviso('Hubo un problema con los datos de la transferencia. Intentá de nuevo.');
@@ -2166,7 +2147,7 @@
 
             // Acreditar al destinatario
             clienteDestino.credito = (clienteDestino.credito || 0) + monto;
-            registrarHistorialCredito(clienteDestino, monto, `Transferencia recibida de ${nombreRemitente} (${telefonoRemitente})${descripcion ? ' — ' + descripcion : ''}`);
+            registrarHistorialCredito(clienteDestino, monto, `Transferencia recibida de ${nombreRemitente} (${telefonoRemitente})`);
 
             // Registrar el movimiento en el mismo sistema de movimientos (pedidos)
             // que ya utiliza el administrador, sin crear ningún panel nuevo.
@@ -2183,7 +2164,6 @@
                 telefonoDestino: _transferDestino.telefono,
                 monto: monto,
                 total: monto,
-                descripcion: descripcion || '',
                 fecha: ahora.toLocaleDateString('es-CR'),
                 hora: horaAMPM(ahora),
                 estado: 'Completada',
