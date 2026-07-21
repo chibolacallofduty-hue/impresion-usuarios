@@ -2585,7 +2585,8 @@
                 // acá para que el administrador lo pueda identificar de un
                 // vistazo (aunque haya pasado el límite reducido).
                 requiereRevision: !dispositivoConfiableFinal,
-                motivoRevision: !dispositivoConfiableFinal ? 'Transferencia desde dispositivo no reconocido' : null
+                motivoRevision: !dispositivoConfiableFinal ? 'Transferencia desde dispositivo no reconocido' : null,
+                revisadoAdmin: false
             });
 
             await saveClientesDB(db);
