@@ -1311,7 +1311,7 @@
 
                 <div id="tcAlertaLimite" class="tc-alert">
                     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>
-                    <div><b>Límite diario alcanzado.</b> Ya completaste tus transferencias permitidas por hoy. Podés volver a enviar mañana.</div>
+                    <div><b>Límite diario alcanzado.</b> Ya completaste tus transferencias permitidas por hoy. El límite se reinicia mañana a medianoche.</div>
                 </div>
 
                 <button type="button" class="btn-enviar" id="tcBtnIrFormulario" onclick="tcIrAFormulario()" style="display:flex; align-items:center; justify-content:center; gap:8px;">
@@ -1355,6 +1355,10 @@
                 </div>
                 <div class="tc-titulo" style="text-align:center; margin-bottom:2px;">¿Confirmar transferencia?</div>
                 <div class="tc-confirm-sub">Revisá los datos antes de proceder.</div>
+                <div style="text-align:center; font-size:0.72rem; color:#94a3b8; margin-top:-8px; margin-bottom:14px; display:flex; align-items:center; justify-content:center; gap:5px;">
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex-shrink:0;"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>
+                    <span>Revisá bien el nombre — esta acción no se puede deshacer.</span>
+                </div>
 
                 <div class="tc-confirm-box">
                     <div class="tc-confirm-fila">
@@ -1996,6 +2000,41 @@
         });
     }
 
+    // Sonido corto y discreto ("tin-tin") cuando una transferencia se completa.
+    // Se genera con Web Audio API, sin archivos externos. Si el navegador
+    // bloquea el audio o no lo soporta, falla en silencio sin afectar nada más.
+    let _tcAudioCtx = null;
+    function tcSonidoExito() {
+        try {
+            if (!_tcAudioCtx) {
+                const AudioCtx = window.AudioContext || window.webkitAudioContext;
+                if (!AudioCtx) return;
+                _tcAudioCtx = new AudioCtx();
+            }
+            if (_tcAudioCtx.state === 'suspended') _tcAudioCtx.resume();
+
+            const tocarNota = (frecuencia, inicioSeg, duracionSeg, volumen) => {
+                const osc = _tcAudioCtx.createOscillator();
+                const gain = _tcAudioCtx.createGain();
+                osc.type = 'sine';
+                osc.frequency.value = frecuencia;
+                const t0 = _tcAudioCtx.currentTime + inicioSeg;
+                gain.gain.setValueAtTime(0, t0);
+                gain.gain.linearRampToValueAtTime(volumen, t0 + 0.02);
+                gain.gain.exponentialRampToValueAtTime(0.001, t0 + duracionSeg);
+                osc.connect(gain);
+                gain.connect(_tcAudioCtx.destination);
+                osc.start(t0);
+                osc.stop(t0 + duracionSeg + 0.02);
+            };
+
+            tocarNota(880, 0, 0.14, 0.08);      // primera nota (tin)
+            tocarNota(1318.5, 0.09, 0.22, 0.09); // segunda nota, más aguda (tin)
+        } catch (e) {
+            // silencioso: el sonido es un detalle, nunca debe romper el flujo
+        }
+    }
+
     // Avatar de iniciales para el destinatario: color determinístico según
     // el nombre, para que cada cliente se vea siempre con el mismo color.
     const TC_COLORES_AVATAR = ['#6366f1', '#8b5cf6', '#ec4899', '#f59e0b', '#10b981', '#0ea5e9', '#f43f5e', '#14b8a6'];
@@ -2454,6 +2493,7 @@
             document.getElementById('tcReciboMonto').textContent = '₡' + formatColones(monto);
             document.getElementById('tcReciboSaldoNuevo').textContent = '₡' + formatColones(clienteRemitente.credito);
             tcMostrarPantalla('tcSuccess');
+            tcSonidoExito();
 
             // Mantener el crédito cacheado sincronizado para la próxima operación en esta sesión
             _transferCreditoDisponible = clienteRemitente.credito;
@@ -2745,7 +2785,8 @@
 
     // Cancela un pedido propio mientras siga pendiente. Lo marca en el
     // servidor (no lo borra) para que quede registro, y el propio cliente
-    // deja de recibir notificaciones/crédito por ese pedido.
+    // deja de recibir notificaciones/crédito por ese pedido. Si el pedido
+    // había usado crédito, se lo devuelve automáticamente al cliente.
     window.cancelarPedidoCliente = async function(id) {
         if (!confirm('¿Seguro que querés cancelar este pedido? No se puede deshacer.')) return;
         try {
@@ -2759,10 +2800,33 @@
                 mostrarAviso('Este pedido ya está listo, no se puede cancelar.');
                 return;
             }
-            db.pedidos[idx].cancelado = true;
-            db.pedidos[idx].estado = 'Cancelado';
+
+            const pedido = db.pedidos[idx];
+            let creditoDevuelto = 0;
+
+            // Si el pedido usó crédito y todavía no se le reembolsó, se lo devolvemos
+            if (pedido.creditoUsado > 0 && !pedido.creditoReembolsado) {
+                const key = getClienteKey(pedido.cliente, pedido.telefono);
+                if (!db.clientes[key]) db.clientes[key] = { pedidos: 0, credito: 0 };
+                db.clientes[key].credito = (db.clientes[key].credito || 0) + pedido.creditoUsado;
+                registrarHistorialCredito(db.clientes[key], pedido.creditoUsado, `Reembolso por pedido cancelado (Ticket #${id})`);
+                pedido.creditoReembolsado = true;
+                creditoDevuelto = pedido.creditoUsado;
+            }
+
+            pedido.cancelado = true;
+            pedido.estado = 'Cancelado';
             await saveClientesDB(db);
-            mostrarAviso('Pedido cancelado.', '✅');
+
+            if (creditoDevuelto > 0) {
+                mostrarAviso(`Pedido cancelado. Se te devolvieron ₡${formatColones(creditoDevuelto)} de crédito.`, '✅');
+                // Reflejar el crédito devuelto de inmediato en el banner del cliente
+                const nombreActual = document.getElementById('cliente').value.trim();
+                const telefonoActual = document.getElementById('telefonoCliente').value.trim();
+                if (nombreActual && telefonoActual) revisarPuntosCliente(nombreActual, telefonoActual);
+            } else {
+                mostrarAviso('Pedido cancelado.', '✅');
+            }
         } catch (e) {
             mostrarAviso('No se pudo cancelar el pedido. Probá de nuevo.');
         }
