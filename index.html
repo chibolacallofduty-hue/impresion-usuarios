@@ -977,8 +977,53 @@
         .tc-avatar-lg { width: 44px; height: 44px; font-size: 1.05rem; }
         .tc-resultado-fila { display: flex; align-items: center; gap: 10px; }
         .tc-resultado-texto { display: flex; flex-direction: column; }
-        .tc-resultado-texto .principal { font-weight: 600; font-size: 0.85rem; }
+        .tc-resultado-texto .principal { display: flex; align-items: center; gap: 4px; font-weight: 600; font-size: 0.85rem; }
         .tc-resultado-texto .secundario { font-size: 0.72rem; color: #94a3b8; }
+
+        /* Insignia de "verificado" junto al nombre */
+        .tc-verificado {
+            display: inline-flex; align-items: center; justify-content: center;
+            width: 15px; height: 15px; border-radius: 50%;
+            background: #4f46e5; color: #fff; flex-shrink: 0;
+        }
+        .tc-verificado svg { width: 10px; height: 10px; }
+
+        /* Link de historial en el header */
+        .tc-header-link {
+            background: none; border: none; color: #e0e7ff;
+            font-size: 0.72rem; font-weight: 600; cursor: pointer;
+            display: flex; align-items: center; gap: 4px; padding: 2px 0;
+            text-decoration: underline; text-underline-offset: 2px;
+        }
+
+        /* Stat de total transferido histórico */
+        .tc-stat-total {
+            text-align: center; font-size: 0.78rem; color: #94a3b8;
+            margin-top: 10px; margin-bottom: 2px;
+        }
+        .tc-stat-total b { color: #64748b; font-weight: 700; }
+
+        /* Lista de historial de transferencias */
+        .tc-historial-item {
+            display: flex; align-items: center; gap: 12px;
+            padding: 12px 4px; border-bottom: 1px solid #f1f5f9;
+        }
+        .tc-historial-item:last-child { border-bottom: none; }
+        .tc-historial-icono {
+            width: 38px; height: 38px; border-radius: 50%;
+            display: flex; align-items: center; justify-content: center;
+            flex-shrink: 0; font-size: 1rem;
+        }
+        .tc-historial-icono.entra { background: #ecfdf5; color: #059669; }
+        .tc-historial-icono.sale { background: #eef2ff; color: #4f46e5; }
+        .tc-historial-texto { flex: 1; min-width: 0; }
+        .tc-historial-texto .principal { font-size: 0.85rem; font-weight: 600; color: #1e293b; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .tc-historial-texto .secundario { font-size: 0.72rem; color: #94a3b8; }
+        .tc-historial-monto { font-size: 0.88rem; font-weight: 800; flex-shrink: 0; }
+        .tc-historial-monto.entra { color: #059669; }
+        .tc-historial-monto.sale { color: #4f46e5; }
+        .tc-historial-vacio { text-align: center; color: #94a3b8; font-size: 0.85rem; padding: 30px 10px; }
+        .tc-historial-lista { max-height: 320px; overflow-y: auto; margin: -4px 0 4px 0; }
 
         .tc-balance-value.tc-cargando { opacity: 0.5; }
         @keyframes tcShimmer {
@@ -1248,6 +1293,7 @@
             <div>
                 <div class="tc-header-titulo">Billetera de Crédito</div>
                 <div class="tc-header-sub">Mi Centro de Impresión</div>
+                <button type="button" class="tc-header-link" onclick="tcAbrirHistorial()">🕓 Ver historial</button>
             </div>
             <div style="display:flex; align-items:center; gap:10px;">
                 <div class="tc-header-pill"><span class="tc-header-dot"></span><span id="tcHeaderContador">Envíos: 0/4</span></div>
@@ -1272,6 +1318,7 @@
                     <span>Pasar tu Crédito</span>
                     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M14 5l7 7m0 0l-7 7m7-7H3"/></svg>
                 </button>
+                <div class="tc-stat-total" id="tcStatTotalTransferido" style="display:none;">Has transferido <b>₡0</b> en total</div>
             </div>
 
             <!-- 2. PANTALLA DE FORMULARIO -->
@@ -1315,6 +1362,7 @@
                         <span class="val" style="display:flex; align-items:center; gap:8px;">
                             <span class="tc-avatar" id="tcConfirmAvatar"></span>
                             <span id="transferConfNombre">—</span>
+                            <span class="tc-verificado" title="Cliente registrado"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg></span>
                         </span>
                     </div>
                     <div class="tc-confirm-fila">
@@ -1362,6 +1410,15 @@
 
                     <button type="button" class="tc-btn-volver" onclick="tcVolverAInicio()">Volver al Inicio</button>
                 </div>
+            </div>
+
+            <!-- 5. PANTALLA DE HISTORIAL DE TRANSFERENCIAS -->
+            <div id="tcHistorial" class="tc-screen">
+                <div class="tc-titulo">Historial de transferencias</div>
+                <div class="tc-historial-lista" id="tcHistorialLista">
+                    <div class="tc-historial-vacio">Cargando...</div>
+                </div>
+                <button type="button" class="tc-btn-secundario" style="width:100%;" onclick="tcVolverAInicio()">Volver al Inicio</button>
             </div>
         </div>
     </div>
@@ -1934,7 +1991,7 @@
 
     // Cambia de pantalla dentro del modal de transferencia
     function tcMostrarPantalla(idPantalla) {
-        ['tcHome', 'tcForm', 'tcConfirm', 'tcSuccess'].forEach(id => {
+        ['tcHome', 'tcForm', 'tcConfirm', 'tcSuccess', 'tcHistorial'].forEach(id => {
             document.getElementById(id).classList.toggle('activa', id === idPantalla);
         });
     }
@@ -2054,9 +2111,89 @@
             } else {
                 btnIr.textContent = '🚀 Iniciar Transferencia';
             }
+
+            const statTotal = document.getElementById('tcStatTotalTransferido');
+            const totalHistorico = clienteRemitente.totalTransferidoHistorico || 0;
+            if (totalHistorico > 0) {
+                statTotal.style.display = 'block';
+                statTotal.innerHTML = `Has transferido <b>₡${formatColones(totalHistorico)}</b> en total`;
+            } else {
+                statTotal.style.display = 'none';
+            }
         } catch (e) {
             balanceEl.classList.remove('tc-cargando');
             balanceEl.textContent = '0';
+        }
+    }
+
+    // Pantalla de historial: lista las transferencias enviadas y recibidas
+    // (leídas del mismo historial de crédito que ya usa el resto de la app).
+    function tcAbrirHistorial() {
+        tcMostrarPantalla('tcHistorial');
+        tcCargarHistorial();
+    }
+
+    async function tcCargarHistorial() {
+        const nombreRemitente = document.getElementById('cliente').value.trim();
+        const telefonoRemitente = document.getElementById('telefonoCliente').value.trim();
+        const lista = document.getElementById('tcHistorialLista');
+        if (!nombreRemitente || !telefonoRemitente) {
+            lista.innerHTML = '<div class="tc-historial-vacio">Completá tu nombre y teléfono arriba primero.</div>';
+            return;
+        }
+        lista.innerHTML = '<div class="tc-historial-vacio">Cargando...</div>';
+        try {
+            const db = await getClientesDB();
+            const key = getClienteKey(nombreRemitente, telefonoRemitente);
+            const cliente = db.clientes[key] || {};
+            const historial = (cliente.historial || [])
+                .filter(m => m.motivo && m.motivo.indexOf('Transferencia') === 0)
+                .slice()
+                .reverse();
+
+            if (historial.length === 0) {
+                lista.innerHTML = '<div class="tc-historial-vacio">Todavía no tenés transferencias enviadas ni recibidas.</div>';
+                return;
+            }
+
+            lista.innerHTML = '';
+            historial.forEach(mov => {
+                const esRecibida = mov.monto > 0;
+                const otraParte = esRecibida
+                    ? (mov.motivo.match(/^Transferencia recibida de (.+?) \(/) || [])[1]
+                    : (mov.motivo.match(/^Transferencia enviada a (.+?) \(/) || [])[1];
+                const nombreOtro = otraParte || 'Cliente';
+
+                const fila = document.createElement('div');
+                fila.className = 'tc-historial-item';
+
+                const icono = document.createElement('div');
+                icono.className = 'tc-historial-icono ' + (esRecibida ? 'entra' : 'sale');
+                icono.textContent = esRecibida ? '↓' : '↑';
+
+                const textos = document.createElement('div');
+                textos.className = 'tc-historial-texto';
+                const principal = document.createElement('div');
+                principal.className = 'principal';
+                principal.textContent = (esRecibida ? 'De ' : 'A ') + nombreOtro;
+                const secundario = document.createElement('div');
+                secundario.className = 'secundario';
+                const fecha = mov.fecha ? new Date(mov.fecha) : null;
+                secundario.textContent = fecha ? fecha.toLocaleDateString('es-CR') + ' · ' + horaAMPM(fecha) : '';
+                textos.appendChild(principal);
+                textos.appendChild(secundario);
+
+                const montoEl = document.createElement('div');
+                montoEl.className = 'tc-historial-monto ' + (esRecibida ? 'entra' : 'sale');
+                montoEl.textContent = (esRecibida ? '+' : '-') + '₡' + formatColones(Math.abs(mov.monto));
+
+                fila.appendChild(icono);
+                fila.appendChild(textos);
+                fila.appendChild(montoEl);
+                lista.appendChild(fila);
+            });
+        } catch (e) {
+            lista.innerHTML = '<div class="tc-historial-vacio">No se pudo cargar el historial. Probá de nuevo.</div>';
         }
     }
 
@@ -2266,6 +2403,7 @@
             // Descontar al remitente
             clienteRemitente.credito = Math.max(0, (clienteRemitente.credito || 0) - monto);
             registrarTransferenciaHoy(clienteRemitente);
+            clienteRemitente.totalTransferidoHistorico = (clienteRemitente.totalTransferidoHistorico || 0) + monto;
             registrarHistorialCredito(clienteRemitente, -monto, `Transferencia enviada a ${destinoFresco.nombre} (${_transferDestino.telefono})`);
 
             // Acreditar al destinatario
@@ -2377,8 +2515,24 @@
             // antes en esta misma sesión, o 0 la primera vez que se muestra).
             const desdeAnimacion = _ultimosCreditosMostrados[key] !== undefined ? _ultimosCreditosMostrados[key] : 0;
 
+            // Si lo que acaba de llegar es una transferencia de otro cliente
+            // (y no crédito ganado por pedidos), lo anunciamos mencionando
+            // quién se lo envió, en vez del mensaje genérico.
+            let remitenteTransferencia = null;
+            if (esNuevo) {
+                const ultimoMov = (cliente.historial && cliente.historial.length) ? cliente.historial[cliente.historial.length - 1] : null;
+                if (ultimoMov && ultimoMov.motivo && ultimoMov.motivo.indexOf('Transferencia recibida de ') === 0 && ultimoMov.saldo === credito) {
+                    const match = ultimoMov.motivo.match(/^Transferencia recibida de (.+?) \(/);
+                    remitenteTransferencia = match ? match[1] : 'otro cliente';
+                }
+            }
+
             banner.className = 'banner-credito-disponible';
-            banner.innerHTML = `<span class="emoji-regalo-anim">🎁</span> Tienes <b>₡<span id="creditoNumeroAnimado">${formatColones(desdeAnimacion)}</span></b> de crédito disponible. Se aplica automáticamente al pagar.`;
+            if (remitenteTransferencia) {
+                banner.innerHTML = `<span class="emoji-regalo-anim">💸</span> <b>¡${remitenteTransferencia} te transfirió crédito!</b> Ahora tenés ₡<b><span id="creditoNumeroAnimado">${formatColones(desdeAnimacion)}</span></b> disponible.`;
+            } else {
+                banner.innerHTML = `<span class="emoji-regalo-anim">🎁</span> Tienes <b>₡<span id="creditoNumeroAnimado">${formatColones(desdeAnimacion)}</span></b> de crédito disponible. Se aplica automáticamente al pagar.`;
+            }
             banner.style.color = "#7c3aed";
             banner.style.background = "#f5f3ff";
             banner.style.border = "1.5px solid #ddd6fe";
