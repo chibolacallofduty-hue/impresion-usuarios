@@ -1094,7 +1094,9 @@
             gap: 10px;
         }
         .tc-alert.visible { display: flex; }
+        .tc-alert-dispositivo { background: #eff6ff; border-color: #bfdbfe; color: #1e40af; }
         .tc-alert svg { flex-shrink: 0; margin-top: 1px; color: #f59e0b; }
+        .tc-alert-dispositivo svg { color: #3b82f6; }
 
         .tc-titulo { font-size: 1.05rem; font-weight: 700; color: #1e293b; margin-bottom: 16px; }
 
@@ -1312,6 +1314,11 @@
                 <div id="tcAlertaLimite" class="tc-alert">
                     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>
                     <div><b>Límite diario alcanzado.</b> Ya completaste tus transferencias permitidas por hoy. El límite se reinicia mañana a medianoche.</div>
+                </div>
+
+                <div id="tcAlertaDispositivo" class="tc-alert tc-alert-dispositivo">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/></svg>
+                    <div><b>Dispositivo no reconocido.</b> <span></span></div>
                 </div>
 
                 <button type="button" class="btn-enviar" id="tcBtnIrFormulario" onclick="tcIrAFormulario()" style="display:flex; align-items:center; justify-content:center; gap:8px;">
@@ -1940,7 +1947,14 @@
     // cada día). Preparado para modificarse
     // fácilmente en el futuro sin tocar el resto de la lógica.
     const TRANSFERENCIA_CONFIG = {
-        limiteTransferencias: 4
+        limiteTransferencias: 4,
+        // Si el dispositivo desde el que se transfiere no está "reconocido"
+        // para ese cliente, el envío no se bloquea del todo: se limita a
+        // este monto por día como medida de seguridad. Un dispositivo se
+        // reconoce automáticamente cuando ese cliente hace un pedido normal
+        // desde él (ver tcMatricularDispositivo).
+        limiteMontoDispositivoNoConfiable: 500,
+        maxDispositivosConfiablesPorCliente: 3
     };
 
     // Estado temporal del modal de transferencia (se resetea al abrir/cerrar)
@@ -1948,6 +1962,59 @@
     let _transferBusquedaTimeout = null;
     let _transferBuscando = false;
     let _transferCreditoDisponible = 0;
+    let _transferDispositivoConfiable = true; // se recalcula cada vez que se abre el modal
+
+    // ── Dispositivo de confianza ──────────────────────────────────────────
+    // Genera (o reutiliza) un identificador único e impredecible para ESTE
+    // navegador/dispositivo, guardado en localStorage por cada cliente
+    // (nombre+teléfono) que lo haya usado.
+    function tcObtenerOCrearTokenDispositivo(key) {
+        const storageKey = 'miCentroImpresion_dispositivoToken_' + key;
+        let token = localStorage.getItem(storageKey);
+        if (!token) {
+            if (window.crypto && crypto.randomUUID) {
+                token = crypto.randomUUID();
+            } else {
+                token = 'dev-' + Date.now() + '-' + Math.random().toString(36).slice(2);
+            }
+            localStorage.setItem(storageKey, token);
+        }
+        return token;
+    }
+
+    // Se llama cada vez que un cliente completa una acción "normal" de la
+    // app (por ejemplo, un pedido de impresión). Si el dispositivo actual
+    // todavía no está en su lista de dispositivos confiables, lo agrega.
+    // No requiere que el cliente haga nada; pasa en silencio.
+    function tcMatricularDispositivo(dbFresco, nombreCliente, telefonoCliente) {
+        try {
+            const key = getClienteKey(nombreCliente, telefonoCliente);
+            const token = tcObtenerOCrearTokenDispositivo(key);
+            if (!dbFresco.clientes[key]) dbFresco.clientes[key] = { pedidos: 0, credito: 0 };
+            const cliente = dbFresco.clientes[key];
+            if (!Array.isArray(cliente.dispositivosConfiables)) cliente.dispositivosConfiables = [];
+
+            const yaExiste = cliente.dispositivosConfiables.some(d => d.token === token);
+            if (!yaExiste) {
+                cliente.dispositivosConfiables.push({ token: token, fecha: new Date().toISOString() });
+                // Limitar la cantidad de dispositivos confiables guardados por cliente
+                if (cliente.dispositivosConfiables.length > TRANSFERENCIA_CONFIG.maxDispositivosConfiablesPorCliente) {
+                    cliente.dispositivosConfiables = cliente.dispositivosConfiables.slice(-TRANSFERENCIA_CONFIG.maxDispositivosConfiablesPorCliente);
+                }
+            }
+        } catch (e) {
+            // Si algo falla acá, no debe romper el guardado del pedido
+        }
+    }
+
+    // Revisa si ESTE dispositivo ya está reconocido para ese cliente,
+    // comparando el token local contra la lista guardada en Firebase.
+    function tcEsDispositivoConfiable(cliente, key) {
+        const token = localStorage.getItem('miCentroImpresion_dispositivoToken_' + key);
+        if (!token) return false;
+        if (!cliente || !Array.isArray(cliente.dispositivosConfiables)) return false;
+        return cliente.dispositivosConfiables.some(d => d.token === token);
+    }
 
     // A partir de la clave del cliente (nombre_normalizado__telefono) reconstruye
     // un nombre presentable, ya que el sistema no guarda el nombre con mayúsculas
@@ -2075,11 +2142,21 @@
         const btnContinuar = document.getElementById('btnTransferContinuar');
         const monto = tcParsearMonto();
 
-        const usuarioValido = _transferDestino !== null;
-        const montoValido = monto > 0 && monto <= _transferCreditoDisponible;
+        // Tope efectivo: el crédito disponible, o el límite reducido de
+        // seguridad si este dispositivo no está reconocido para el cliente.
+        const topeEfectivo = _transferDispositivoConfiable
+            ? _transferCreditoDisponible
+            : Math.min(_transferCreditoDisponible, TRANSFERENCIA_CONFIG.limiteMontoDispositivoNoConfiable);
 
-        if (monto > _transferCreditoDisponible && monto > 0) {
-            feedback.textContent = 'Crédito insuficiente para realizar esta transferencia.';
+        const usuarioValido = _transferDestino !== null;
+        const montoValido = monto > 0 && monto <= topeEfectivo;
+
+        if (monto > 0 && monto > topeEfectivo) {
+            if (!_transferDispositivoConfiable && monto > TRANSFERENCIA_CONFIG.limiteMontoDispositivoNoConfiable) {
+                feedback.textContent = `Dispositivo no reconocido: el máximo por hoy desde acá es ₡${formatColones(TRANSFERENCIA_CONFIG.limiteMontoDispositivoNoConfiable)}.`;
+            } else {
+                feedback.textContent = 'Crédito insuficiente para realizar esta transferencia.';
+            }
             feedback.classList.add('visible');
         } else {
             feedback.classList.remove('visible');
@@ -2137,6 +2214,7 @@
             _transferCreditoDisponible = credito;
             const hechas = obtenerTransferenciasHoy(clienteRemitente);
             const limite = TRANSFERENCIA_CONFIG.limiteTransferencias;
+            _transferDispositivoConfiable = tcEsDispositivoConfiable(clienteRemitente, keyRemitente);
 
             balanceEl.classList.remove('tc-cargando');
             animarContadorCredito(balanceEl, creditoAnterior, credito, 650);
@@ -2149,6 +2227,15 @@
                 btnIr.textContent = 'No tenés crédito disponible';
             } else {
                 btnIr.textContent = '🚀 Iniciar Transferencia';
+            }
+
+            const alertaDispositivo = document.getElementById('tcAlertaDispositivo');
+            if (!_transferDispositivoConfiable) {
+                alertaDispositivo.classList.add('visible');
+                alertaDispositivo.querySelector('span').textContent =
+                    `Dispositivo no reconocido para este número. Por seguridad, los envíos desde acá están limitados a ₡${formatColones(TRANSFERENCIA_CONFIG.limiteMontoDispositivoNoConfiable)} por día, hasta que hagas un pedido normal desde este dispositivo.`;
+            } else {
+                alertaDispositivo.classList.remove('visible');
             }
 
             const statTotal = document.getElementById('tcStatTotalTransferido');
@@ -2357,6 +2444,7 @@
             const clienteRemitente = db.clientes[keyRemitente] || { pedidos: 0, credito: 0 };
             const creditoDisponible = clienteRemitente.credito || 0;
             _transferCreditoDisponible = creditoDisponible;
+            _transferDispositivoConfiable = tcEsDispositivoConfiable(clienteRemitente, keyRemitente);
             const transferenciasHechas = obtenerTransferenciasHoy(clienteRemitente);
 
             if (transferenciasHechas >= TRANSFERENCIA_CONFIG.limiteTransferencias) {
@@ -2365,6 +2453,10 @@
             }
             if (creditoDisponible < monto) {
                 mostrarAviso(`No tenés crédito suficiente. Tu crédito disponible es ₡${formatColones(creditoDisponible)}.`, '💰');
+                return;
+            }
+            if (!_transferDispositivoConfiable && monto > TRANSFERENCIA_CONFIG.limiteMontoDispositivoNoConfiable) {
+                mostrarAviso(`Este dispositivo no está reconocido para este número. Por seguridad, el máximo por hoy desde acá es ₡${formatColones(TRANSFERENCIA_CONFIG.limiteMontoDispositivoNoConfiable)}.`, '🔒');
                 return;
             }
             // Reconfirmar que el destinatario sigue existiendo con datos frescos
@@ -2430,6 +2522,12 @@
                 tcVolverAFormulario();
                 return;
             }
+            const dispositivoConfiableFinal = tcEsDispositivoConfiable(clienteRemitente, keyRemitente);
+            if (!dispositivoConfiableFinal && monto > TRANSFERENCIA_CONFIG.limiteMontoDispositivoNoConfiable) {
+                mostrarAviso(`Este dispositivo no está reconocido para este número. Por seguridad, el máximo por hoy desde acá es ₡${formatColones(TRANSFERENCIA_CONFIG.limiteMontoDispositivoNoConfiable)}.`, '🔒');
+                tcVolverAFormulario();
+                return;
+            }
             const destinoFresco = buscarClientePorTelefono(db, _transferDestino.telefono);
             if (!destinoFresco) {
                 mostrarAviso('Número de teléfono no registrado.');
@@ -2481,7 +2579,13 @@
                 grapado: false,
                 modoImpresion: '',
                 metodoPago: 'transferencia_credito',
-                codigoReferido: null
+                codigoReferido: null,
+                // Marca de seguridad: si el remitente envió esto desde un
+                // dispositivo no reconocido para su número, queda señalado
+                // acá para que el administrador lo pueda identificar de un
+                // vistazo (aunque haya pasado el límite reducido).
+                requiereRevision: !dispositivoConfiableFinal,
+                motivoRevision: !dispositivoConfiableFinal ? 'Transferencia desde dispositivo no reconocido' : null
             });
 
             await saveClientesDB(db);
@@ -3809,6 +3913,11 @@
             if (!dbFresco.clientes[key]) dbFresco.clientes[key] = { pedidos: 0, credito: 0 };
             dbFresco.clientes[key].credito = Math.max(0, creditoDespues);
         }
+
+        // Hacer un pedido normal es señal suficiente de que este dispositivo
+        // es del propio cliente: lo matriculamos como confiable para
+        // "Pasar tu Crédito" (ver TRANSFERENCIA_CONFIG).
+        tcMatricularDispositivo(dbFresco, nombreCliente, telefonoCliente);
 
         fetch(`${FIREBASE_URL}/db.json`, {
             method: 'PUT',
