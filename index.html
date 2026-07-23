@@ -93,6 +93,92 @@
             margin-bottom: 20px;
         }
 
+        #btnAyudaRecorrido {
+            flex-shrink: 0;
+            background: #f8fafc;
+            border: 1.5px solid var(--border-color);
+            color: var(--text-muted);
+            font-size: 0.74rem;
+            font-weight: 700;
+            padding: 7px 10px;
+            border-radius: 999px;
+            cursor: pointer;
+            white-space: nowrap;
+        }
+        #btnAyudaRecorrido:active { background: #eef2ff; color: #4338ca; border-color: #c7d2fe; }
+
+        /* ── Recorrido guiado (spotlight) ─────────────────────────────── */
+        #recorridoOverlay {
+            display: none;
+            position: fixed;
+            inset: 0;
+            background: rgba(15, 23, 42, 0.75);
+            z-index: 10010;
+        }
+        #recorridoOverlay.visible { display: block; }
+
+        .recorrido-resaltado {
+            position: relative;
+            z-index: 10011;
+            border-radius: 12px;
+            box-shadow: 0 0 0 4px #6366f1, 0 0 0 9999px rgba(15, 23, 42, 0.75);
+            transition: box-shadow 0.2s ease;
+        }
+
+        .recorrido-card {
+            position: fixed;
+            left: 16px;
+            right: 16px;
+            bottom: 16px;
+            z-index: 10012;
+            background: #fff;
+            border-radius: 16px;
+            padding: 18px 20px;
+            box-shadow: 0 -6px 30px rgba(0,0,0,0.3);
+            animation: bannerPop 0.3s cubic-bezier(.26,1.55,.44,1) both;
+        }
+        .recorrido-paso-num {
+            font-size: 0.7rem;
+            font-weight: 800;
+            color: #6366f1;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 4px;
+        }
+        .recorrido-titulo {
+            font-size: 1rem;
+            font-weight: 800;
+            color: var(--text-dark);
+            margin-bottom: 6px;
+        }
+        .recorrido-texto {
+            font-size: 0.88rem;
+            color: var(--text-muted);
+            line-height: 1.5;
+            margin-bottom: 16px;
+        }
+        .recorrido-controles {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 10px;
+        }
+        .recorrido-puntos { display: flex; gap: 5px; }
+        .recorrido-puntos span {
+            width: 6px; height: 6px; border-radius: 50%;
+            background: #e2e8f0;
+        }
+        .recorrido-puntos span.activo { background: #6366f1; width: 16px; border-radius: 999px; }
+        .recorrido-btn-saltar {
+            background: none; border: none; color: var(--text-muted);
+            font-size: 0.82rem; font-weight: 600; cursor: pointer; padding: 8px 4px;
+        }
+        .recorrido-btn-siguiente {
+            background: var(--brand-color); color: #fff; border: none;
+            border-radius: 10px; padding: 10px 18px; font-size: 0.85rem;
+            font-weight: 700; cursor: pointer;
+        }
+
         .form-group {
             margin-bottom: 16px;
             display: flex;
@@ -1435,13 +1521,20 @@
     </div>
 </div>
 
+<!-- Recorrido guiado: oscurece la pantalla y resalta un elemento a la vez -->
+<div id="recorridoOverlay"></div>
+<div id="recorridoCard" class="recorrido-card" style="display:none;"></div>
+
 <div id="loaderGlobal" class="loading-overlay">
     <div class="spinner"></div>
     <div class="loading-text" id="loaderTexto">🤖 Analizando archivos...<br><span style="font-size: 0.85rem; color: var(--text-muted); font-weight: 400;">Calculando páginas y costos en tiempo real.</span></div>
 </div>
 
 <div class="container">
-    <h2>Pedir Impresiones en Línea 🖨️</h2>
+    <div style="display:flex; align-items:flex-start; justify-content:space-between; gap:10px;">
+        <h2 style="margin-bottom:0;">Pedir Impresiones en Línea 🖨️</h2>
+        <button type="button" id="btnAyudaRecorrido" onclick="iniciarRecorridoGuiado()" title="¿Cómo funciona esta app?">❓ ¿Cómo funciona?</button>
+    </div>
     <div class="subtitle">🤖 Hola, soy <b>Pixel</b>, tu asistente de impresión. Subí tus archivos y te doy la cotización al instante.</div>
 
     <!-- ── PWA: banner de descarga/instalación en la app ─────────── -->
@@ -2613,6 +2706,146 @@
         }
     }
 
+    // ── Recorrido guiado ("¿Cómo funciona esta app?") ────────────────────
+    // Resalta un elemento a la vez, oscureciendo el resto de la pantalla,
+    // con una tarjeta abajo explicando qué hace esa parte de la app.
+    const RECORRIDO_PASOS = [
+        {
+            selector: '#cliente',
+            titulo: 'Tu nombre',
+            texto: 'Escribí tu nombre completo. Con esto identificamos tus pedidos y tu crédito cada vez que volvés a usar la app.'
+        },
+        {
+            selector: '#telefonoCliente',
+            titulo: 'Tu número de teléfono',
+            texto: 'Te avisamos por acá cuando tu pedido esté listo. También es el número que otros clientes usan para enviarte crédito.'
+        },
+        {
+            selector: '#grupoCodigoReferido',
+            titulo: 'Código de referido',
+            texto: 'Si alguien te invitó a usar la app, poné su código acá. Cuando hagas tu primer pedido, ambos reciben crédito de regalo.'
+        },
+        {
+            selector: '#bannerPuntosCliente',
+            titulo: 'Tu crédito disponible',
+            texto: 'Acá ves cuánto crédito tenés acumulado. Se descuenta solo, automáticamente, la próxima vez que pagués un pedido.'
+        },
+        {
+            selector: '.btn-transferir-credito',
+            titulo: 'Pasar tu Crédito',
+            texto: 'Le podés enviar crédito a otro cliente usando solo su número de teléfono — rápido, y podés ver el historial de tus envíos.'
+        },
+        {
+            selector: '#bannerReferido',
+            titulo: 'Invitá y ganá crédito',
+            texto: 'Compartí tu código con amigos. Cuando ellos hagan su primer pedido usándolo, vos también ganás crédito.'
+        },
+        {
+            selector: '#btnActivarNotis',
+            titulo: 'Activar notificaciones',
+            texto: 'Activá esto para que te avisemos apenas tu pedido esté listo, sin que tengas que estar revisando la app a cada rato.'
+        },
+        {
+            selector: '#panelPedidoActual',
+            titulo: 'Estado de tu pedido',
+            texto: 'Acá seguís en vivo cómo va tu pedido de hoy: si está en cola, listo, o si lo cancelaste.'
+        },
+        {
+            selector: '.ai-upload-zone',
+            titulo: 'Cargar documentos',
+            texto: 'Subí tu archivo por acá para empezar. Te damos la cotización al instante, antes de que confirmés nada.'
+        }
+    ];
+
+    let _recorridoPasosVisibles = [];
+    let _recorridoIndiceActual = 0;
+    let _recorridoElementoResaltado = null;
+    let _recorridoEsAutomatico = false;
+
+    function tcElementoVisible(el) {
+        if (!el) return false;
+        const estilo = window.getComputedStyle(el);
+        if (estilo.display === 'none' || estilo.visibility === 'hidden') return false;
+        const rect = el.getBoundingClientRect();
+        return rect.width > 0 && rect.height > 0;
+    }
+
+    function iniciarRecorridoGuiado(esAutomatico) {
+        _recorridoEsAutomatico = esAutomatico === true;
+        _recorridoPasosVisibles = RECORRIDO_PASOS
+            .map(p => ({ ...p, el: document.querySelector(p.selector) }))
+            .filter(p => tcElementoVisible(p.el));
+
+        if (_recorridoPasosVisibles.length === 0) return;
+
+        _recorridoIndiceActual = 0;
+        document.getElementById('recorridoOverlay').classList.add('visible');
+        document.getElementById('recorridoCard').style.display = 'block';
+        mostrarPasoRecorrido(0);
+    }
+
+    function mostrarPasoRecorrido(indice) {
+        if (_recorridoElementoResaltado) {
+            _recorridoElementoResaltado.classList.remove('recorrido-resaltado');
+        }
+
+        const paso = _recorridoPasosVisibles[indice];
+        if (!paso || !tcElementoVisible(paso.el)) {
+            // Si ese elemento ya no está visible (ej: un banner que se cerró),
+            // saltamos al siguiente paso disponible.
+            if (indice < _recorridoPasosVisibles.length - 1) {
+                mostrarPasoRecorrido(indice + 1);
+            } else {
+                cerrarRecorridoGuiado();
+            }
+            return;
+        }
+
+        _recorridoIndiceActual = indice;
+        _recorridoElementoResaltado = paso.el;
+        paso.el.classList.add('recorrido-resaltado');
+        paso.el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+
+        const esUltimo = indice === _recorridoPasosVisibles.length - 1;
+        const card = document.getElementById('recorridoCard');
+        const puntosHTML = _recorridoPasosVisibles.map((_, i) =>
+            `<span class="${i === indice ? 'activo' : ''}"></span>`
+        ).join('');
+
+        card.innerHTML = `
+            <div class="recorrido-paso-num">Paso ${indice + 1} de ${_recorridoPasosVisibles.length}</div>
+            <div class="recorrido-titulo">${paso.titulo}</div>
+            <div class="recorrido-texto">${paso.texto}</div>
+            <div class="recorrido-controles">
+                <div class="recorrido-puntos">${puntosHTML}</div>
+                <div style="display:flex; align-items:center; gap:14px;">
+                    <button type="button" class="recorrido-btn-saltar" onclick="cerrarRecorridoGuiado()">Saltar</button>
+                    <button type="button" class="recorrido-btn-siguiente" onclick="siguientePasoRecorrido()">${esUltimo ? 'Listo' : 'Siguiente'}</button>
+                </div>
+            </div>
+        `;
+    }
+
+    function siguientePasoRecorrido() {
+        if (_recorridoIndiceActual < _recorridoPasosVisibles.length - 1) {
+            mostrarPasoRecorrido(_recorridoIndiceActual + 1);
+        } else {
+            cerrarRecorridoGuiado();
+        }
+    }
+
+    function cerrarRecorridoGuiado() {
+        if (_recorridoElementoResaltado) {
+            _recorridoElementoResaltado.classList.remove('recorrido-resaltado');
+            _recorridoElementoResaltado = null;
+        }
+        document.getElementById('recorridoOverlay').classList.remove('visible');
+        document.getElementById('recorridoCard').style.display = 'none';
+        if (_recorridoEsAutomatico) {
+            localStorage.setItem('miCentroImpresion_recorridoVisto', '1');
+        }
+    }
+
     // Recuerda el último valor de crédito mostrado a cada cliente en esta sesión,
     // para poder "contar" desde ahí hasta el nuevo valor (efecto tragamonedas).
     let _ultimosCreditosMostrados = {};
@@ -3299,6 +3532,13 @@
         // datos (por ejemplo, si el negocio te agrega crédito manualmente), se
         // actualiza al instante, sin recargar la página ni esperar.
         iniciarEscuchaCreditoCliente();
+
+        // Recorrido guiado: solo se muestra automáticamente la primera vez.
+        // Se espera un poco para que los banners condicionales (crédito,
+        // referidos) ya hayan terminado de aparecer o no en pantalla.
+        if (!localStorage.getItem('miCentroImpresion_recorridoVisto')) {
+            setTimeout(() => iniciarRecorridoGuiado(true), 900);
+        }
 
         function actualizarPuntosDesdeForm() {
             const nombre = document.getElementById('cliente').value.trim();
