@@ -1601,7 +1601,7 @@
     </div>
 
     <div id="bannerHorario" style="display:none; text-align:center; font-size:0.82rem; font-weight:700; padding:8px 10px; border-radius:10px; margin-bottom:14px;"></div>
-    <div id="bannerPausado" style="display:none; text-align:center; font-size:0.82rem; font-weight:700; padding:8px 10px; border-radius:10px; margin-bottom:14px; background:#fee2e2; color:#991b1b;">⏸️ No estamos recibiendo pedidos en este momento. Volvé a intentar más tarde.</div>
+    <div id="bannerPausado" style="display:none; text-align:center; font-size:0.82rem; font-weight:700; padding:8px 10px; border-radius:10px; margin-bottom:14px; background:#fee2e2; color:#991b1b;">🚧 No estamos recibiendo pedidos nuevos en este momento. Volvé a intentar más tarde.</div>
 
     <form id="formPedido" onsubmit="event.preventDefault(); enviarPedidoALaNube();" onkeydown="if(event.key==='Enter' && event.target.id!=='btnEnviar' && event.target.tagName!=='TEXTAREA'){event.preventDefault();event.target.blur();}">
         <div class="form-group">
@@ -4103,7 +4103,7 @@
             const resPausa = await fetch(`${FIREBASE_URL}/pausado.json`);
             const pausado = await resPausa.json();
             if (pausado) {
-                mostrarAviso("En este momento no estamos recibiendo pedidos nuevos. Por favor intentá de nuevo más tarde.", "⏸️");
+                mostrarAviso("En este momento no estamos recibiendo pedidos nuevos. Por favor intentá de nuevo más tarde.", "🚧");
                 return;
             }
         } catch (e) {}
