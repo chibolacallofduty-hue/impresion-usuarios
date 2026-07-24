@@ -751,6 +751,20 @@
             display: flex;
             animation: fadeInOverlay 0.25s ease;
         }
+        #confirmOverlay {
+            display: none;
+            position: fixed;
+            inset: 0;
+            background: rgba(15, 23, 42, 0.6);
+            z-index: 10003;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+        #confirmOverlay.visible {
+            display: flex;
+            animation: fadeInOverlay 0.25s ease;
+        }
         .aviso-card {
             background: var(--panel-bg, #fff);
             color: var(--text-dark, #1e293b);
@@ -774,6 +788,20 @@
             font-size: 0.9rem;
             cursor: pointer;
         }
+        .aviso-botones { display: flex; gap: 10px; }
+        .aviso-botones .aviso-boton { flex: 1; padding: 11px 10px; }
+        .aviso-boton-secundario {
+            background: #f1f5f9;
+            color: var(--text-muted);
+            border: none;
+            border-radius: 10px;
+            padding: 11px 10px;
+            font-weight: 700;
+            font-size: 0.9rem;
+            cursor: pointer;
+            flex: 1;
+        }
+        .aviso-boton-peligro { background: #dc2626; }
 
         .premio-card {
             background: linear-gradient(135deg, #1e1b4b 0%, #312e81 100%);
@@ -1371,6 +1399,18 @@
         <div class="aviso-icono" id="avisoIcono">⚠️</div>
         <div class="aviso-mensaje" id="avisoMensaje"></div>
         <button class="aviso-boton" onclick="cerrarAviso()">Entendido</button>
+    </div>
+</div>
+
+<!-- Confirmación propia de la app (reemplaza el confirm() nativo del navegador) -->
+<div id="confirmOverlay">
+    <div class="aviso-card">
+        <div class="aviso-icono" id="confirmIcono">❓</div>
+        <div class="aviso-mensaje" id="confirmMensaje"></div>
+        <div class="aviso-botones">
+            <button class="aviso-boton-secundario" id="confirmBtnCancelar">Cancelar</button>
+            <button class="aviso-boton" id="confirmBtnAceptar">Sí, continuar</button>
+        </div>
     </div>
 </div>
 
@@ -3045,6 +3085,32 @@
         document.getElementById('avisoOverlay').classList.remove('visible');
     }
 
+    // Confirmación propia de la app, en vez del confirm() nativo del
+    // navegador (que también muestra el nombre del sitio y no se puede
+    // estilizar). Como el modal no es bloqueante como el confirm() nativo,
+    // se resuelve con una Promesa: usar con "await".
+    let _confirmResolver = null;
+    function mostrarConfirmacion(mensaje, textoAceptar, icono, peligroso) {
+        return new Promise((resolve) => {
+            document.getElementById('confirmIcono').textContent = icono || '❓';
+            document.getElementById('confirmMensaje').textContent = mensaje;
+            const btnAceptar = document.getElementById('confirmBtnAceptar');
+            btnAceptar.textContent = textoAceptar || 'Sí, continuar';
+            btnAceptar.classList.toggle('aviso-boton-peligro', !!peligroso);
+            document.getElementById('confirmOverlay').classList.add('visible');
+            _confirmResolver = resolve;
+        });
+    }
+    function cerrarConfirmacion(resultado) {
+        document.getElementById('confirmOverlay').classList.remove('visible');
+        if (_confirmResolver) {
+            _confirmResolver(resultado);
+            _confirmResolver = null;
+        }
+    }
+    document.getElementById('confirmBtnAceptar').addEventListener('click', () => cerrarConfirmacion(true));
+    document.getElementById('confirmBtnCancelar').addEventListener('click', () => cerrarConfirmacion(false));
+
     function lanzarConfetti() {
         const colores = ['#6366f1','#f59e0b','#10b981','#ef4444','#ec4899','#3b82f6'];
         for (let i = 0; i < 80; i++) {
@@ -3126,7 +3192,13 @@
     // deja de recibir notificaciones/crédito por ese pedido. Si el pedido
     // había usado crédito, se lo devuelve automáticamente al cliente.
     window.cancelarPedidoCliente = async function(id) {
-        if (!confirm('¿Seguro que querés cancelar este pedido? No se puede deshacer.')) return;
+        const confirmado = await mostrarConfirmacion(
+            '¿Seguro que querés cancelar este pedido? No se puede deshacer.',
+            'Sí, cancelar pedido',
+            '🗑️',
+            true
+        );
+        if (!confirmado) return;
         try {
             const db = await getClientesDB();
             const idx = db.pedidos.findIndex(p => p.id === id);
@@ -4007,6 +4079,11 @@
 
     // ── ENVIAR PEDIDO ────────────────────────────────────────────
     async function enviarPedidoALaNube() {
+        if (!navigator.onLine) {
+            mostrarAviso("No tenés conexión a internet. Tu pedido no se envió — revisá tu wifi o datos móviles e intentá de nuevo.", "📡");
+            return;
+        }
+
         const cantidadHojas = document.getElementById('cantidad').value;
         const archivos = document.getElementById('archivoDocumento').files;
 
@@ -4084,7 +4161,11 @@
                 }
             } catch (err) {
                 console.error(err);
-                mostrarAviso(`Error al subir el archivo: ${archivos[i].name}. Comprobá tu conexión.`);
+                if (!navigator.onLine) {
+                    mostrarAviso("Perdiste la conexión a internet mientras se subía tu archivo. Tu pedido no se envió — revisá tu wifi o datos e intentá de nuevo.", "📡");
+                } else {
+                    mostrarAviso(`No se pudo subir el archivo "${archivos[i].name}". Probá de nuevo en un momento.`);
+                }
                 btn.textContent = "🚀 Enviar Pedido Digital";
                 btn.disabled = false;
                 return;
@@ -4237,7 +4318,11 @@
         })
         .catch(err => {
             console.error(err);
-            mostrarAviso("Error de conexión al guardar el pedido.");
+            if (!navigator.onLine) {
+                mostrarAviso("Perdiste la conexión a internet. Tu pedido no se pudo guardar — revisá tu wifi o datos e intentá de nuevo.", "📡");
+            } else {
+                mostrarAviso("No se pudo guardar el pedido. Probá de nuevo en un momento.");
+            }
         })
         .finally(() => {
             btn.textContent = "🚀 Enviar Pedido Digital";
